@@ -4,9 +4,9 @@ import { AspectRatio, FileData } from "../types";
 
 const VITE_API_KEY = import.meta.env.VITE_API_KEY;
 
-if (!VITE_API_KEY) {
-    throw new Error("API_KEY environment variable not set.");
-}
+//if (!VITE_API_KEY) {
+//    throw new Error("API_KEY environment variable not set.");
+//}
 
 const ai = new GoogleGenAI({ apiKey: VITE_API_KEY });
 
