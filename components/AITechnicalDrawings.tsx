@@ -1,0 +1,178 @@
+import React from 'react';
+import { FileData, Tool } from '../types';
+import { AITechnicalDrawingsState } from '../state/toolState';
+import * as geminiService from '../services/geminiService';
+import * as historyService from '../services/historyService';
+import Spinner from './Spinner';
+import ImageUpload from './common/ImageUpload';
+import ImageComparator from './ImageComparator';
+
+interface AITechnicalDrawingsProps {
+    state: AITechnicalDrawingsState;
+    onStateChange: (newState: Partial<AITechnicalDrawingsState>) => void;
+}
+
+const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStateChange }) => {
+    const { sourceImage, isLoading, error, resultImage, drawingType, detailLevel } = state;
+
+    const handleFileSelect = (fileData: FileData | null) => {
+        onStateChange({
+            sourceImage: fileData,
+            resultImage: null,
+            error: null,
+        });
+    };
+
+    const handleGenerate = async () => {
+        if (!sourceImage) {
+            onStateChange({ error: 'Vui lòng tải lên một ảnh Render để bắt đầu.' });
+            return;
+        }
+        onStateChange({ isLoading: true, error: null, resultImage: null });
+
+        // Prompt construction
+        const drawingTypeMap = {
+            'floor-plan': 'a professional 2D floor plan',
+            'elevation': 'a professional 2D front elevation drawing',
+            'section': 'a professional 2D cross-section drawing'
+        };
+
+        const detailLevelMap = {
+            'basic': 'Use simple, clean lines to show the main architectural layout, walls, doors, and windows.',
+            'detailed': 'Include more details such as furniture layout, fixtures, structural elements, and material indications (hatching for concrete, wood grain patterns, etc.).',
+            'annotated': 'Include all details from the "detailed" level, and add text annotations for room names (e.g., "Living Room", "Bedroom 1") and overall dimensions.',
+            'terrain': 'Show the building in context with its surrounding terrain, including contour lines, major landscaping features, and pathways.'
+        };
+
+        const prompt = `From this photorealistic 3D architectural rendering, generate ${drawingTypeMap[drawingType]}. The drawing must be strictly orthographic (no perspective), with clean, thin black lines on a white background, in the style of a technical architectural drawing. ${detailLevelMap[detailLevel]}`;
+
+        try {
+            const results = await geminiService.editImage(prompt, sourceImage, 1);
+            const imageUrl = results[0].imageUrl;
+            onStateChange({ resultImage: imageUrl });
+
+            historyService.addToHistory({
+                tool: Tool.AITechnicalDrawings,
+                prompt: prompt,
+                sourceImageURL: sourceImage.objectURL,
+                resultImageURL: imageUrl,
+            });
+
+        } catch (err: any) {
+            onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
+        } finally {
+            onStateChange({ isLoading: false });
+        }
+    };
+
+    const handleDownload = () => {
+        if (!resultImage) return;
+        const link = document.createElement('a');
+        link.href = resultImage;
+        link.download = `technical-drawing-${drawingType}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const renderOptionSelector = (
+        label: string,
+        options: { value: string, label: string }[],
+        currentValue: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onChange: (value: any) => void
+    ) => (
+        <div>
+            <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">{label}</label>
+            <div className="flex flex-wrap items-center gap-2 bg-main-bg dark:bg-gray-700/50 p-1 rounded-lg">
+                {options.map(option => (
+                    <button
+                        key={option.value}
+                        onClick={() => onChange(option.value)}
+                        disabled={isLoading}
+                        className={`flex-grow py-2 px-3 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-700/50 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed ${
+                            currentValue === option.value
+                                ? 'bg-accent text-white shadow'
+                                : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        }`}
+                    >
+                        {option.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="flex flex-col gap-8">
+            <h2 className="text-2xl font-bold text-text-primary dark:text-white mb-4">Bản vẽ kỹ thuật AI</h2>
+            <p className="text-text-secondary dark:text-gray-300 -mt-8 mb-6">Tải lên một ảnh Render 3D, AI sẽ tự động phân tích và chuyển đổi thành bản vẽ kỹ thuật 2D tương ứng.</p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* --- INPUTS --- */}
+                <div className="space-y-6 bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
+                    <div>
+                        <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Tải Lên Ảnh Render 3D</label>
+                        <ImageUpload onFileSelect={handleFileSelect} id="technical-drawing-source" previewUrl={sourceImage?.objectURL} />
+                    </div>
+                    {renderOptionSelector(
+                        "2. Chọn loại bản vẽ",
+                        [
+                            { value: 'floor-plan', label: 'Mặt bằng 2D' },
+                            { value: 'elevation', label: 'Mặt đứng' },
+                            { value: 'section', label: 'Mặt cắt' },
+                        ],
+                        drawingType,
+                        (value) => onStateChange({ drawingType: value })
+                    )}
+                    {renderOptionSelector(
+                        "3. Chọn mức độ chi tiết",
+                        [
+                            { value: 'basic', label: 'Cơ bản' },
+                            { value: 'detailed', label: 'Chi tiết' },
+                            { value: 'annotated', label: 'Chú thích' },
+                            { value: 'terrain', label: 'Địa hình' },
+                        ],
+                        detailLevel,
+                        (value) => onStateChange({ detailLevel: value })
+                    )}
+
+                    <button
+                        onClick={handleGenerate}
+                        disabled={isLoading || !sourceImage}
+                        className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                    >
+                        {isLoading ? <><Spinner /> Đang tạo bản vẽ...</> : 'Tạo Bản Vẽ'}
+                    </button>
+                    {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
+                </div>
+
+                {/* --- RESULTS --- */}
+                <div>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold text-text-primary dark:text-white">So sánh Render & Bản vẽ</h3>
+                        {resultImage && (
+                            <button onClick={handleDownload} className="text-center bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 transition-colors rounded-lg text-sm">
+                                Tải xuống Bản vẽ
+                            </button>
+                        )}
+                    </div>
+                    <div className="w-full aspect-video bg-main-bg dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-border-color dark:border-gray-700 flex items-center justify-center overflow-hidden">
+                        {isLoading && <Spinner />}
+                        {!isLoading && resultImage && sourceImage && (
+                            <ImageComparator
+                                originalImage={sourceImage.objectURL}
+                                resultImage={resultImage}
+                            />
+                        )}
+                        {!isLoading && !resultImage && (
+                             <p className="text-text-secondary dark:text-gray-400 text-center p-4">{sourceImage ? 'Bản vẽ kỹ thuật sẽ được hiển thị ở đây.' : 'Tải lên một ảnh render để bắt đầu.'}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default AITechnicalDrawings;

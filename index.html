@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auflow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'dark-bg': '#1F2937',      // gray-800
+              'main-bg': '#F3F4F6',      // gray-100
+              'surface': '#FFFFFF',
+              'accent': {
+                DEFAULT: '#14B8A6',   // teal-500
+                '50': '#F0FDFA',
+                '100': '#CCFBF1',
+                '200': '#99F6E4',
+                '300': '#5EEAD4',
+                '400': '#2DD4BF',
+                '500': '#14B8A6',
+                '600': '#0D9488',
+                '700': '#0F766E',
+                '800': '#115E59',
+                '900': '#134E4A'
+              },
+              'text-primary': '#111827',  // gray-900
+              'text-secondary': '#4B5563', // gray-600
+              'border-color': '#D1D5DB', // gray-300
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.20.0",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.45.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

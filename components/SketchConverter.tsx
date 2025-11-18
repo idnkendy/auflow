@@ -1,0 +1,185 @@
+import React from 'react';
+import { FileData, Tool } from '../types';
+import { SketchConverterState } from '../state/toolState';
+import * as geminiService from '../services/geminiService';
+import * as historyService from '../services/historyService';
+import Spinner from './Spinner';
+import ImageUpload from './common/ImageUpload';
+import ImageComparator from './ImageComparator';
+
+interface SketchConverterProps {
+    state: SketchConverterState;
+    onStateChange: (newState: Partial<SketchConverterState>) => void;
+}
+
+const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange }) => {
+    const { sourceImage, isLoading, error, resultImage, sketchStyle, detailLevel } = state;
+
+    const handleFileSelect = (fileData: FileData | null) => {
+        onStateChange({
+            sourceImage: fileData,
+            resultImage: null,
+            error: null,
+        });
+    };
+
+    const handleGenerate = async () => {
+        if (!sourceImage) {
+            onStateChange({ error: 'Vui lòng tải lên một ảnh để chuyển đổi.' });
+            return;
+        }
+        onStateChange({ isLoading: true, error: null, resultImage: null });
+
+        // Prompt construction
+        const styleMap = {
+            'pencil': 'a highly detailed pencil sketch',
+            'charcoal': 'a dramatic charcoal drawing',
+            'watercolor': 'a beautiful watercolor painting'
+        };
+
+        let prompt = '';
+        if (sketchStyle === 'watercolor') {
+            const watercolorDetailMap = {
+                'low': 'using a loose, wet-on-wet technique with soft edges and a limited color palette',
+                'medium': 'with a balance of soft washes and defined details, showcasing vibrant colors',
+                'high': 'with intricate details, rich colors, and complex layering of washes'
+            };
+            prompt = `Convert this realistic image into ${styleMap.watercolor}. The final result should look like a hand-painted artwork. The painting should have a level of detail that is ${watercolorDetailMap[detailLevel]}. The background should be a clean white paper texture.`;
+        } else {
+            const detailMap = {
+                'low': 'with minimal lines, focusing on the main contours and shapes',
+                'medium': 'with a balanced amount of detail and shading',
+                'high': 'with intricate details, textures, and rich shading'
+            };
+            prompt = `Convert this realistic image into ${styleMap[sketchStyle as 'pencil' | 'charcoal']}. The sketch must be strictly black and white on a clean white background. The final result should look like a hand-drawn artwork. The sketch should have a level of detail that is ${detailMap[detailLevel]}. Do not include any color.`;
+        }
+
+        try {
+            const results = await geminiService.editImage(prompt, sourceImage, 1);
+            const imageUrl = results[0].imageUrl;
+            onStateChange({ resultImage: imageUrl });
+
+            historyService.addToHistory({
+                tool: Tool.SketchConverter,
+                prompt: prompt,
+                sourceImageURL: sourceImage.objectURL,
+                resultImageURL: imageUrl,
+            });
+
+        } catch (err: any) {
+            onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
+        } finally {
+            onStateChange({ isLoading: false });
+        }
+    };
+
+    const handleDownload = () => {
+        if (!resultImage) return;
+        const link = document.createElement('a');
+        link.href = resultImage;
+        link.download = `sketch-conversion.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const renderOptionSelector = (
+        label: string,
+        options: { value: string, label: string }[],
+        currentValue: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onChange: (value: any) => void
+    ) => (
+        <div>
+            <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">{label}</label>
+            <div className="flex flex-wrap items-center gap-2 bg-main-bg dark:bg-gray-700/50 p-1 rounded-lg">
+                {options.map(option => (
+                    <button
+                        key={option.value}
+                        onClick={() => onChange(option.value)}
+                        disabled={isLoading}
+                        className={`flex-grow py-2 px-3 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-700/50 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed ${
+                            currentValue === option.value
+                                ? 'bg-accent text-white shadow'
+                                : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        }`}
+                    >
+                        {option.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="flex flex-col gap-8">
+            <h2 className="text-2xl font-bold text-text-primary dark:text-white mb-4">AI Biến Ảnh Thành Sketch</h2>
+            <p className="text-text-secondary dark:text-gray-300 -mt-8 mb-6">Tải lên một ảnh thực tế hoặc ảnh render, AI sẽ chuyển đổi nó thành một bản vẽ phác thảo đen trắng nghệ thuật.</p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* --- INPUTS --- */}
+                <div className="space-y-6 bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
+                    <div>
+                        <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Tải Lên Ảnh Gốc</label>
+                        <ImageUpload onFileSelect={handleFileSelect} id="sketch-converter-source" previewUrl={sourceImage?.objectURL} />
+                    </div>
+                    {renderOptionSelector(
+                        "2. Chọn phong cách",
+                        [
+                            { value: 'pencil', label: 'Bút chì' },
+                            { value: 'charcoal', label: 'Than củi' },
+                            { value: 'watercolor', label: 'Màu nước' },
+                        ],
+                        sketchStyle,
+                        (value) => onStateChange({ sketchStyle: value })
+                    )}
+                    {renderOptionSelector(
+                        "3. Chọn mức độ chi tiết",
+                        [
+                            { value: 'low', label: 'Ít chi tiết' },
+                            { value: 'medium', label: 'Chi tiết vừa' },
+                            { value: 'high', label: 'Nhiều chi tiết' },
+                        ],
+                        detailLevel,
+                        (value) => onStateChange({ detailLevel: value })
+                    )}
+
+                    <button
+                        onClick={handleGenerate}
+                        disabled={isLoading || !sourceImage}
+                        className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                    >
+                        {isLoading ? <><Spinner /> Đang chuyển đổi...</> : 'Tạo Sketch'}
+                    </button>
+                    {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
+                </div>
+
+                {/* --- RESULTS --- */}
+                <div>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold text-text-primary dark:text-white">So sánh Ảnh Gốc & Sketch</h3>
+                        {resultImage && (
+                            <button onClick={handleDownload} className="text-center bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 transition-colors rounded-lg text-sm">
+                                Tải xuống Sketch
+                            </button>
+                        )}
+                    </div>
+                    <div className="w-full aspect-video bg-main-bg dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-border-color dark:border-gray-700 flex items-center justify-center overflow-hidden">
+                        {isLoading && <Spinner />}
+                        {!isLoading && resultImage && sourceImage && (
+                            <ImageComparator
+                                originalImage={sourceImage.objectURL}
+                                resultImage={resultImage}
+                            />
+                        )}
+                        {!isLoading && !resultImage && (
+                             <p className="text-text-secondary dark:text-gray-400 text-center p-4">{sourceImage ? 'Bản vẽ sketch sẽ được hiển thị ở đây.' : 'Tải lên một ảnh để bắt đầu.'}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default SketchConverter;
