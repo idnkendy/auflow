@@ -2,13 +2,13 @@
 import { GoogleGenAI, GenerateContentResponse, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
 
-const API_KEY = process.env.API_KEY;
+const VITE_API_KEY = import.meta.env.VITE_API_KEY;
 
-if (!API_KEY) {
+if (!VITE_API_KEY) {
     throw new Error("API_KEY environment variable not set.");
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const ai = new GoogleGenAI({ apiKey: VITE_API_KEY });
 
 
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1): Promise<string[]> => {
@@ -67,7 +67,7 @@ export const generateVideo = async (
           throw new Error("Video generation completed, but no download link was found.");
         }
         
-        const videoResponse = await fetch(`${downloadLink}&key=${API_KEY}`);
+        const videoResponse = await fetch(`${downloadLink}&key=${VITE_API_KEY}`);
         if (!videoResponse.ok) {
             throw new Error(`Failed to fetch video file: ${videoResponse.statusText}`);
         }
