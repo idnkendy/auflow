@@ -1,17 +1,22 @@
+
 // Fix: Imported GenerateVideosResponse to correctly type the video generation operation.
 import { GoogleGenAI, GenerateContentResponse, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
 
-const VITE_API_KEY = import.meta.env.VITE_API_KEY;
+// Sử dụng giá trị rỗng nếu không có key để tránh crash ứng dụng ngay khi mở
+const API_KEY = process.env.API_KEY || "";
 
-//if (!VITE_API_KEY) {
-//    throw new Error("API_KEY environment variable not set.");
-//}
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const ai = new GoogleGenAI({ apiKey: VITE_API_KEY });
-
+// Hàm kiểm tra key trước khi gọi API
+const ensureApiKey = () => {
+    if (!API_KEY) {
+        throw new Error("API Key chưa được cấu hình. Vui lòng kiểm tra biến môi trường.");
+    }
+};
 
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1): Promise<string[]> => {
+    ensureApiKey();
     try {
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
@@ -35,6 +40,7 @@ export const generateVideo = async (
     prompt: string, 
     startImage?: FileData
 ): Promise<string> => {
+    ensureApiKey();
     try {
         let finalPrompt = prompt;
         let imageForApi: FileData | undefined = startImage;
@@ -67,7 +73,7 @@ export const generateVideo = async (
           throw new Error("Video generation completed, but no download link was found.");
         }
         
-        const videoResponse = await fetch(`${downloadLink}&key=${VITE_API_KEY}`);
+        const videoResponse = await fetch(`${downloadLink}&key=${API_KEY}`);
         if (!videoResponse.ok) {
             throw new Error(`Failed to fetch video file: ${videoResponse.statusText}`);
         }
@@ -92,6 +98,7 @@ export const generateVideo = async (
 };
 
 export const generateTextFromImage = async (prompt: string, image: FileData): Promise<string> => {
+    ensureApiKey();
     try {
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -118,6 +125,7 @@ export const generateTextFromImage = async (prompt: string, image: FileData): Pr
 };
 
 export const generateText = async (prompt: string): Promise<string> => {
+    ensureApiKey();
     try {
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -132,6 +140,7 @@ export const generateText = async (prompt: string): Promise<string> => {
 };
 
 export const generatePromptSuggestions = async (image: FileData, subject: string, count: number, customInstruction?: string): Promise<Record<string, string[]>> => {
+    ensureApiKey();
     try {
         let prompt = `Từ ảnh kiến trúc, tạo các prompt tiếng Việt sáng tạo để render ảnh mới.`;
         let responseSchema: any;
@@ -207,6 +216,7 @@ export const enhancePrompt = async (
     customNeeds: string,
     image?: FileData
 ): Promise<string> => {
+    ensureApiKey();
     try {
         let prompt = `Bạn là một chuyên gia viết prompt cho AI tạo hình ảnh kiến trúc. Nhiệm vụ của bạn là nhận yêu cầu của người dùng (có thể là từ khóa, mô tả chi tiết, hoặc một hình ảnh) và biến chúng thành một prompt hoàn chỉnh, chuyên nghiệp bằng tiếng Việt.
 
@@ -245,6 +255,7 @@ Nhiệm vụ:
 
 
 export const generatePromptFromImageAndText = async (image: FileData, keywords: string): Promise<string> => {
+    ensureApiKey();
     try {
         const prompt = `Phân tích hình ảnh và từ khóa ("${keywords}"). Trả về DUY NHẤT một chuỗi prompt tiếng Việt chi tiết theo cấu trúc sau, KHÔNG thêm bất kỳ lời dẫn, giải thích hay định dạng nào khác. Cấu trúc: "Biến thành ảnh chụp thực tế, [loại công trình], [phong cách thiết kế], [tone màu], [vật liệu], [các đặc điểm khác của công trình], [cảnh quan xung quanh], [thời gian]". Điền thông tin vào các mục trong ngoặc vuông dựa trên phân tích.`;
         
@@ -273,6 +284,7 @@ export const generatePromptFromImageAndText = async (image: FileData, keywords: 
 };
 
 export const generateMoodboardPromptFromScene = async (sceneImage: FileData): Promise<string> => {
+    ensureApiKey();
     try {
         const prompt = `Analyze this image of an interior or exterior scene. Identify the core design style, key materials, and color palette. Summarize these elements into a concise, descriptive prompt suitable for generating a moodboard. For example: "A minimalist interior with light oak wood, soft gray fabrics, and a neutral color palette." or "A tropical brutalist exterior with raw concrete, lush green plants, and black metal accents." Return ONLY the descriptive phrase, in Vietnamese, without any introductory text.`;
         
@@ -302,6 +314,7 @@ export const generateMoodboardPromptFromScene = async (sceneImage: FileData): Pr
 
 
 const generateEditedImages = async (parts: any[], numberOfImages: number): Promise<{imageUrl: string, text: string}[]> => {
+    ensureApiKey();
     const generateSingle = async (): Promise<{imageUrl: string, text: string}> => {
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',

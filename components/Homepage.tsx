@@ -1,9 +1,13 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Session } from '@supabase/supabase-js';
+import { supabase } from '../services/supabaseClient';
 
 interface HomepageProps {
   onStart: () => void;
   onAuthNavigate: (mode: 'login' | 'signup') => void;
+  session?: Session | null;
+  onGoToGallery?: () => void;
 }
 
 const StyleIcon = () => ( <svg className="h-10 w-10 text-teal-400" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M25.0391 16.2109C27.6172 17.0312 29.6094 18.9844 30.7031 21.5625C31.7969 24.1406 31.9141 27.1094 30.9375 29.8828C29.9609 32.6562 27.9297 34.9219 25.1953 36.1719C22.4609 37.4219 19.3359 37.5391 16.5234 36.4844C13.7109 35.4297 11.5234 33.3203 10.4297 30.6641C9.33594 28.0078 9.41406 25.0391 10.625 22.3438C11.8359 19.6484 14.1016 17.5 16.9141 16.3281C19.7266 15.1562 22.8906 15.1484 25.0391 16.2109Z" stroke="currentColor" strokeWidth="2"/><path d="M15.5859 22.4219C16.9141 21.6016 18.6328 21.4062 20.1953 21.9141C21.7578 22.4219 23.0469 23.5938 23.7891 25.1172C24.5312 26.6406 24.6484 28.3984 24.1016 29.9609C23.5547 31.5234 22.3828 32.7734 20.8203 33.4375" stroke="currentColor" strokeWidth="2"/><path d="M13 3C11.3438 4.19531 10.0391 5.625 9.14062 7.25M17.8906 5.15625C18.6719 6.48438 19.1484 7.94531 19.2969 9.46875M23 3C23.8359 4.89062 24.0391 6.94531 23.5547 8.92188M28 4.25C27.6172 6.55469 26.6406 8.70312 25.1953 10.5312M15.5 12.0312C14 11.25 12.2812 10.8594 10.5 10.9688" stroke="currentColor" strokeWidth="2"/></svg> );
@@ -13,10 +17,34 @@ const InstagramIcon = () => (<svg className="w-6 h-6" fill="currentColor" viewBo
 const FacebookIcon = () => (<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.323-1.325z"></path></svg>);
 const TwitterIcon = () => (<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482c-4.11- .205-7.748-2.17-10.175-5.17a4.93 4.93 0 001.524 6.572 4.903 4.903 0 01-2.228-.616c-.002.018-.002.037-.002.055a4.925 4.925 0 003.946 4.827 4.996 4.996 0 01-2.223.084 4.926 4.926 0 004.6 3.42 9.86 9.86 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63a9.935 9.935 0 002.44-2.548z"></path></svg>);
 
-const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate }) => {
+const UserIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+);
+
+const LogoutIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+    </svg>
+);
+
+const GalleryIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+);
+
+const StarIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+    </svg>
+);
+
+const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery }) => {
     return (
         <div style={{ backgroundColor: 'rgb(229, 231, 235)' }} className="text-gray-800 font-sans antialiased">
-            <Header onStart={onStart} onAuthNavigate={onAuthNavigate} />
+            <Header onStart={onStart} onAuthNavigate={onAuthNavigate} session={session} onGoToGallery={onGoToGallery} />
             <main>
                 <Hero onStart={onStart} />
                 <div className="bg-gray-200">
@@ -30,7 +58,22 @@ const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate }) => {
     );
 };
 
-const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate }) => {
+const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery }) => {
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
     const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
         e.preventDefault();
         const element = document.getElementById(targetId);
@@ -39,25 +82,83 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate }) => {
         }
     };
 
+    const handleSignOut = async () => {
+        await supabase.auth.signOut();
+        window.location.reload(); // Simple reload to clear state/session display
+    };
+
     return (
-        <header className="bg-gray-800 shadow-md sticky top-0 z-50">
-            <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-                <div className="flex items-center">
+        <header className="bg-gray-800 shadow-md sticky top-0 z-50 px-4 sm:px-6 lg:px-8">
+            <nav className="py-4 grid grid-cols-3 items-center">
+                <div className="flex items-center justify-start">
                     <svg className="w-8 h-8 mr-2 text-teal-400" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M10 90L50 10L90 90" stroke="currentColor" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/>
                         <path d="M30 90L50 50L70 90" stroke="currentColor" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span className="text-white text-xl font-bold">Auflow</span>
                 </div>
-                <div className="hidden md:flex items-center space-x-8">
-                    <a href="#home" onClick={(e) => handleScroll(e, 'home')} className="text-gray-300 hover:text-white transition cursor-pointer">Home</a>
-                    <button onClick={onStart} className="text-gray-300 hover:text-white transition bg-transparent border-none p-0">Features</button>
-                    <a href="#gallery" onClick={(e) => handleScroll(e, 'gallery')} className="text-gray-300 hover:text-white transition cursor-pointer">Gallery</a>
-                    <a href="#testimonials" onClick={(e) => handleScroll(e, 'testimonials')} className="text-gray-300 hover:text-white transition cursor-pointer">Testimonials</a>
+                <div className="hidden md:flex items-center justify-center space-x-8">
+                    <a href="#home" onClick={(e) => handleScroll(e, 'home')} className="text-gray-300 hover:text-white transition cursor-pointer text-lg font-medium">Home</a>
+                    <button onClick={onStart} className="text-gray-300 hover:text-white transition bg-transparent border-none p-0 text-lg font-medium">Features</button>
+                    <a href="#gallery" onClick={(e) => handleScroll(e, 'gallery')} className="text-gray-300 hover:text-white transition cursor-pointer text-lg font-medium">Gallery</a>
+                    <a href="#testimonials" onClick={(e) => handleScroll(e, 'testimonials')} className="text-gray-300 hover:text-white transition cursor-pointer text-lg font-medium">Testimonials</a>
                 </div>
-                <div className="flex items-center space-x-4">
-                    <button onClick={() => onAuthNavigate('login')} className="text-gray-300 hover:text-white transition hidden sm:block">Login</button>
-                    <button onClick={() => onAuthNavigate('signup')} className="bg-transparent border border-white text-white py-2 px-4 rounded-md hover:bg-white hover:text-gray-800 transition">Sign Up</button>
+                <div className="flex items-center justify-end space-x-4">
+                    {session ? (
+                         <div className="relative" ref={dropdownRef}>
+                            <button 
+                                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-gray-300 hover:ring-2 hover:ring-teal-400 transition-all focus:outline-none"
+                                title="Tài khoản"
+                            >
+                                <UserIcon />
+                            </button>
+
+                            {isDropdownOpen && (
+                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 animate-fade-in">
+                                    <div className="px-4 py-2 border-b border-gray-200">
+                                        <p className="text-sm font-semibold text-gray-800">Tài khoản của tôi</p>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={() => { onStart(); setIsDropdownOpen(false); }} // Navigate to app for upgrade if needed or just placeholder
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
+                                    >
+                                        <StarIcon />
+                                        Nâng cấp gói
+                                    </button>
+
+                                    {onGoToGallery && (
+                                         <button 
+                                            onClick={() => {
+                                                onGoToGallery();
+                                                setIsDropdownOpen(false);
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
+                                        >
+                                            <GalleryIcon />
+                                            Thư viện của tôi
+                                        </button>
+                                    )}
+                                    
+                                    <div className="border-t border-gray-200 my-1"></div>
+                                    
+                                    <button 
+                                        onClick={handleSignOut}
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                    >
+                                        <LogoutIcon />
+                                        Đăng xuất
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            <button onClick={() => onAuthNavigate('login')} className="text-gray-300 hover:text-white transition hidden sm:block text-lg font-medium px-4 py-2">Login</button>
+                            <button onClick={() => onAuthNavigate('signup')} className="bg-transparent border-2 border-white text-white py-2 px-6 rounded-md hover:bg-white hover:text-gray-800 transition text-lg font-medium">Sign Up</button>
+                        </>
+                    )}
                 </div>
             </nav>
         </header>

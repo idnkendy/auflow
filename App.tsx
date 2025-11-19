@@ -40,6 +40,25 @@ const App: React.FC = () => {
   const [toolStates, setToolStates] = useState<ToolStates>(initialToolStates);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
+  // Check for pending tab focus to auto-login after email verification
+  useEffect(() => {
+    const handleFocus = async () => {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession) {
+            setSession(currentSession);
+            setView('app');
+        }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+        window.removeEventListener('focus', handleFocus);
+        window.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, []);
+
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
@@ -48,16 +67,16 @@ const App: React.FC = () => {
 
   useEffect(() => {
     setLoadingSession(true);
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoadingSession(false);
+      if (session && view === 'auth') {
+          setView('app');
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [view]);
 
   const handleThemeToggle = () => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
@@ -69,7 +88,6 @@ const App: React.FC = () => {
   };
 
   const handleStartDesigning = () => {
-    // If a session exists, go to the app, otherwise go to the auth page (defaulting to login).
     if (session) {
         setView('app');
     } else {
@@ -84,6 +102,13 @@ const App: React.FC = () => {
   
   const handleGoHome = () => {
     setView('homepage');
+  }
+
+  const handleOpenGallery = () => {
+      if (session) {
+          setView('app');
+          setActiveTool(Tool.History);
+      }
   }
 
   const handleToolStateChange = <T extends Tool>(
@@ -252,14 +277,12 @@ const App: React.FC = () => {
   
   if (session) {
     if (view === 'homepage') {
-        // If logged in user somehow gets to homepage view, let them see it, but the buttons should lead to the app.
-        return <Homepage onStart={() => setView('app')} onAuthNavigate={() => setView('app')} />;
+        return <Homepage onStart={() => setView('app')} onAuthNavigate={() => setView('app')} session={session} onGoToGallery={handleOpenGallery} />;
     }
-    // If logged in, 'auth' view is invalid, default to 'app'
     return (
         <div className="min-h-screen bg-main-bg dark:bg-gray-900 font-sans flex flex-col transition-colors duration-300">
-            <Header onGoHome={handleGoHome} onThemeToggle={handleThemeToggle} theme={theme} onSignOut={handleSignOut} />
-            <div className="container mx-auto px-6 py-8 flex flex-col md:flex-row gap-6 flex-grow">
+            <Header onGoHome={handleGoHome} onThemeToggle={handleThemeToggle} theme={theme} onSignOut={handleSignOut} onOpenGallery={handleOpenGallery} />
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row gap-6 flex-grow">
                 <Navigation activeTool={activeTool} setActiveTool={setActiveTool} />
                 <main className="flex-1 bg-surface dark:bg-dark-bg p-6 sm:p-8 rounded-lg shadow-sm overflow-auto">
                     {renderTool()}
@@ -269,12 +292,10 @@ const App: React.FC = () => {
     );
   }
 
-  // If user is not logged in
   if (view === 'auth') {
     return <AuthPage onGoHome={() => setView('homepage')} initialMode={authMode} />;
   }
   
-  // Default view for logged-out users is the homepage
   return <Homepage onStart={handleStartDesigning} onAuthNavigate={handleAuthNavigate} />;
 };
 
