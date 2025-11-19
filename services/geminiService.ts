@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, GenerateContentResponse, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
+import { GoogleGenAI, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
 import { supabase } from "./supabaseClient";
 import { updateJobApiKey } from "./jobService";
@@ -8,8 +8,8 @@ import { updateJobApiKey } from "./jobService";
 const markKeyAsExhausted = async (key: string) => {
     try {
         // Only mark if it's NOT the env key
-        if (key !== process.env.API_KEY) {
-            console.warn(`Marking key ending in ...${key.slice(-4)} as exhausted in DB.`);
+        if (key && key !== process.env.API_KEY) {
+            console.warn(`Marking key ending in ...${key.slice(-4)} as exhausted.`);
             await supabase.rpc('mark_key_exhausted', { key_val: key });
         }
     } catch (e) {
@@ -17,10 +17,10 @@ const markKeyAsExhausted = async (key: string) => {
     }
 };
 
-// Hàm lấy Dynamic API Key từ Supabase (Load Balancing)
+// --- HELPER: Get Client ---
 const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promise<{ ai: GoogleGenAI, key: string, isEnvKey: boolean }> => {
     try {
-        // 1. Nếu bị ép dùng Key môi trường hoặc có lỗi kết nối DB trước đó
+        // 1. Forced Env Key or Supabase not ready
         if (forceEnvKey || !supabase) {
             if (process.env.API_KEY) {
                 const key = process.env.API_KEY;
@@ -34,12 +34,11 @@ const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promis
             throw new Error("SYSTEM_BUSY"); 
         }
 
-        // 2. Gọi Stored Procedure 'get_worker_key' từ Supabase
+        // 2. Get Key from Supabase (RPC handles rotation)
         const { data: apiKey, error } = await supabase.rpc('get_worker_key');
 
         if (error || !apiKey) {
-            console.warn("Supabase key rotation error/empty:", error);
-            // Fallback: Nếu DB lỗi, dùng key môi trường
+            // If DB fails or returns no key, fallback to Env Key if available
             if (process.env.API_KEY) {
                 const key = process.env.API_KEY;
                 if (jobId) await updateJobApiKey(jobId, "FALLBACK_ENV_KEY");
@@ -52,7 +51,7 @@ const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promis
             throw new Error("SYSTEM_BUSY");
         }
 
-        // 3. Log key đã dùng
+        // 3. Log usage
         if (jobId) {
             await updateJobApiKey(jobId, apiKey);
         }
@@ -64,8 +63,8 @@ const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promis
         };
     } catch (e: any) {
         if (e.message === "SYSTEM_BUSY") throw e;
-        console.error("Critical error initializing AI client:", e);
-        // Final attempt with env key
+        
+        // Final safety net
         if (process.env.API_KEY) {
              return { 
                  ai: new GoogleGenAI({ apiKey: process.env.API_KEY }), 
@@ -77,107 +76,108 @@ const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promis
     }
 };
 
-// --- SMART RETRY LOGIC ---
-// This wrapper handles the "Key 1 Fail -> Mark Exhausted -> Try Key 2" logic
+// --- SMART RETRY LOGIC (CORE ROTATION) ---
 async function withSmartRetry<T>(
     operation: (ai: GoogleGenAI, currentKey: string) => Promise<T>, 
     jobId?: string,
-    maxRetries: number = 4 // Increase retries to allow cycling through keys
+    maxRetries: number = 15 // Try enough times to cycle through all DB keys + reset
 ): Promise<T> {
     let lastError: any;
-    let forceEnv = false;
     let attempts = 0;
+    let forceEnv = false;
+    const failedKeys = new Set<string>(); 
 
     while (attempts < maxRetries) {
         let currentKey = "";
-        let isEnv = false;
+        let isCurrentEnv = false;
 
         try {
-            // 1. Get Client
+            // 1. Fetch Client (This gets the NEXT available key from DB)
             const client = await getAIClient(jobId, forceEnv);
             currentKey = client.key;
-            isEnv = client.isEnvKey;
+            isCurrentEnv = client.isEnvKey;
+
+            // Prevention: If DB gives back a key we just failed on in this loop, skip it
+            if (failedKeys.has(currentKey) && !isCurrentEnv) {
+                 // Ensure it's marked exhausted again just in case
+                 await markKeyAsExhausted(currentKey); 
+                 attempts++;
+                 continue; 
+            }
 
             // 2. Execute Operation
             return await operation(client.ai, currentKey);
 
         } catch (error: any) {
-            lastError = error;
-            const status = error.status;
-            const msg = error.message || '';
+             lastError = error;
+             const status = error.status;
+             const msg = error.message || '';
 
-            // Detect specific errors
-            const isQuota = status === 429 || msg.includes('quota') || msg.includes('exhausted');
-            const isBilling = status === 400 && (msg.includes('billed users') || msg.includes('billing') || msg.includes('credits'));
-            const isSystemBusy = msg === "SYSTEM_BUSY";
+             // Detect Limit/Quota Errors
+             const isQuota = status === 429 || msg.includes('quota') || msg.includes('exhausted') || msg.includes('429');
+             const isBilling = status === 400 && (msg.includes('billed users') || msg.includes('billing') || msg.includes('credits'));
+             const isSystemBusy = msg === "SYSTEM_BUSY";
 
-            // Case A: System Busy (DB has no keys ready)
-            if (isSystemBusy) {
-                if (!forceEnv) {
-                    // Maybe DB is just resetting? Wait a bit and retry once more with DB
-                    if (attempts < 2) {
-                        console.warn("System busy. Waiting for DB reset...");
-                        await new Promise(r => setTimeout(r, 1000));
-                        attempts++;
-                        continue;
-                    } 
-                    // If still busy, force switch to Env Key
-                    console.warn("System busy persistence. Switching to Env Key.");
-                    forceEnv = true;
-                    attempts++;
-                    continue;
-                } else {
-                     break; // Even env key failed or N/A
-                }
-            }
+             // Case A: DB Exhausted (No keys left)
+             if (isSystemBusy) {
+                 if (!forceEnv && process.env.API_KEY) {
+                     console.warn("DB keys exhausted. Switching to Env Key.");
+                     forceEnv = true;
+                     continue;
+                 }
+                 break; // No keys left anywhere
+             }
 
-            // Case B: Quota/Billing Error (Key is dead)
-            if (isQuota || isBilling) {
-                if (!isEnv && currentKey) {
-                    console.warn(`Key ...${currentKey.slice(-4)} failed (${status}). Marking exhausted.`);
-                    await markKeyAsExhausted(currentKey); // Mark THIS key as bad
-                    attempts++; 
-                    continue; // Loop again -> getAIClient will pick the NEXT available key
-                } else if (isEnv && process.env.API_KEY) {
-                     // Env key died? Nothing left to do unless we want to wait longer.
-                     break;
-                }
-            }
+             // Case B: Key Hit Limit -> Mark & Rotate
+             if (isQuota || isBilling) {
+                 if (!isCurrentEnv && currentKey) {
+                     console.warn(`Key ...${currentKey.slice(-4)} failed (${status}). Marking as exhausted & rotating.`);
+                     
+                     // A. Tell DB this key is dead
+                     await markKeyAsExhausted(currentKey);
+                     
+                     // B. Track locally
+                     failedKeys.add(currentKey);
+                     
+                     // C. Retry loop immediately -> getAIClient will fetch next key
+                     attempts++;
+                     continue; 
+                 } 
+             }
+             
+             // Case C: Server Error -> Wait & Retry
+             if (status === 503 || status === 500) {
+                 attempts++;
+                 await new Promise(r => setTimeout(r, 1500));
+                 continue;
+             }
 
-            // Case C: Other Errors (e.g. Bad Prompt, Server Error 500)
-            // Don't retry for bad requests, throw immediately
-            if (status === 400 && !isBilling) {
-                throw error;
-            }
-            
-            // For other transient errors, maybe retry? For now, throw to be safe.
-            throw error;
+             // Case D: Fatal Error (Prompt issue, etc) -> Stop
+             throw error; 
         }
     }
 
-    throw lastError;
+    throw lastError || new Error("Service unavailable after retries.");
 }
 
+// --- GENERATION FUNCTIONS ---
 
-// Helper function for fallback image generation using Flash model
 const generateImageFallback = async (prompt: string, numberOfImages: number, jobId?: string): Promise<string[]> => {
     console.warn(`Falling back to gemini-2.5-flash-image`);
-    
     return withSmartRetry(async (ai) => {
-        const generateSingle = async (): Promise<string> => {
+        const parts = [{ text: prompt }];
+        const promises = Array.from({ length: numberOfImages }).map(async () => {
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image',
-                contents: { parts: [{ text: prompt }] },
+                contents: { parts },
                 config: { responseModalities: [Modality.IMAGE] },
             });
-            for (const part of response.candidates[0].content.parts) {
-                if (part.inlineData) {
-                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                }
+            const part = response.candidates?.[0]?.content?.parts?.[0];
+            if (part?.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
             throw new Error("No image data in fallback response");
-        };
-        const promises = Array.from({ length: numberOfImages }, () => generateSingle());
+        });
         return Promise.all(promises);
     }, jobId);
 };
@@ -194,12 +194,12 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
                     aspectRatio: aspectRatio,
                 },
             });
+            if (!response.generatedImages) throw new Error("No images generated");
             return response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
         }, jobId);
 
     } catch (error: any) {
-        // If specifically billing error on the main model (even after retries), fallback to Flash
-        if (error.status === 400 || error.message?.includes('billed users')) {
+        if (error.status === 400 && (error.message?.includes('billed users') || error.message?.includes('billing'))) {
             return await generateImageFallback(prompt, numberOfImages, jobId);
         }
         throw error;
@@ -209,249 +209,184 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
 export const generateVideo = async (prompt: string, startImage?: FileData, jobId?: string): Promise<string> => {
     return withSmartRetry(async (ai, key) => {
         let finalPrompt = prompt;
-        let imageForApi: FileData | undefined = startImage;
+        let imagePayload = undefined;
 
         if (startImage) {
-            finalPrompt = `Animate the provided static image or create a video starting from it, based on the following prompt: "${prompt}"`;
+            finalPrompt = `Animate the provided image: "${prompt}"`;
+            imagePayload = {
+                imageBytes: startImage.base64,
+                mimeType: startImage.mimeType,
+            };
         }
 
+        // @ts-ignore - Type definition mismatch workaround
         let operation: Operation<GenerateVideosResponse> = await ai.models.generateVideos({
             model: 'veo-2.0-generate-001',
             prompt: finalPrompt,
-            ...(imageForApi && {
-              image: {
-                imageBytes: imageForApi.base64,
-                mimeType: imageForApi.mimeType,
-              },
-            }),
+            image: imagePayload as any, 
             config: { numberOfVideos: 1 }
         });
         
         while (!operation.done) {
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            await new Promise(resolve => setTimeout(resolve, 5000));
             operation = await ai.operations.getVideosOperation({ operation: operation });
         }
         
-        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (!downloadLink) throw new Error("Video generation completed, but no download link was found.");
+        const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!videoUri) throw new Error("Video generation failed: No URI returned.");
         
-        const videoResponse = await fetch(`${downloadLink}&key=${key}`);
-        if (!videoResponse.ok) throw new Error(`Failed to fetch video file: ${videoResponse.statusText}`);
+        const videoResponse = await fetch(`${videoUri}&key=${key}`);
+        if (!videoResponse.ok) throw new Error("Failed to download video.");
         
-        const videoBlob = await videoResponse.blob();
-        return new Promise<string>((resolve, reject) => {
+        const blob = await videoResponse.blob();
+        return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-            reader.readAsDataURL(videoBlob);
+            reader.readAsDataURL(blob);
         });
     }, jobId);
 };
 
-// Text Generation Wrappers
-export const generateTextFromImage = async (prompt: string, image: FileData): Promise<string> => {
+// --- EDIT / TEXT FUNCTIONS ---
+
+const generateGeminiEdit = async (parts: any[], numberOfImages: number, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     return withSmartRetry(async (ai) => {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: {
-                parts: [
-                    { inlineData: { data: image.base64, mimeType: image.mimeType } },
-                    { text: prompt },
-                ],
-            },
+        const promises = Array.from({ length: numberOfImages }).map(async () => {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts },
+                config: { responseModalities: [Modality.IMAGE] },
+            });
+            
+            let imageUrl = '';
+            const part = response.candidates?.[0]?.content?.parts?.[0];
+            
+            if (part?.inlineData) {
+                imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            } else if (part?.text) {
+                 console.warn("Model returned text:", part.text);
+                 throw new Error("Model refused to generate image (Safety/Policy).");
+            }
+            
+            if (!imageUrl) throw new Error("No image returned.");
+            return { imageUrl, text: '' };
         });
-        return response.text || "";
-    });
+        return Promise.all(promises);
+    }, jobId);
 };
 
-export const generateText = async (prompt: string): Promise<string> => {
-    return withSmartRetry(async (ai) => {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [{ text: prompt }] },
-        });
-        return response.text || "";
-    });
-};
-
-export const generatePromptSuggestions = async (image: FileData, subject: string, count: number, customInstruction?: string): Promise<Record<string, string[]>> => {
-    return withSmartRetry(async (ai) => {
-        let prompt = `Từ ảnh kiến trúc, tạo các prompt tiếng Việt sáng tạo để render ảnh mới.`;
-        let responseSchema: any;
-
-        const allSubjects: Record<string, string> = {
-            'Góc toàn cảnh': 'mô tả quy mô, bối cảnh, phản chiếu, ánh sáng tự nhiên',
-            'Góc trung cảnh': 'mô tả sự tương tác của con người với không gian',
-            'Góc lấy nét': 'tập trung vào một đối tượng tiền cảnh như người, chim, hoa, lá—đối tượng chính chiếm tỉ lệ lớn, công trình bị mờ ở hậu cảnh, tạo sự tách biệt rõ ràng giữa tiền cảnh và hậu cảnh',
-            'Chi tiết kiến trúc': 'tập trung vào một chi tiết kiến trúc nhỏ cụ thể'
-        };
-
-        const allProperties = {
-            'Góc toàn cảnh': { type: Type.ARRAY, items: { type: Type.STRING } },
-            'Góc trung cảnh': { type: Type.ARRAY, items: { type: Type.STRING } },
-            'Góc lấy nét': { type: Type.ARRAY, items: { type: Type.STRING } },
-            'Chi tiết kiến trúc': { type: Type.ARRAY, items: { type: Type.STRING } }
-        };
-
-        if (subject === 'all') {
-            prompt += `\nCung cấp ${count} prompt cho mỗi danh mục: 'Góc toàn cảnh', 'Góc trung cảnh', 'Góc lấy nét', và 'Chi tiết kiến trúc'.`;
-            responseSchema = { type: Type.OBJECT, properties: allProperties };
-        } else if (allSubjects[subject]) {
-            prompt += `\nTập trung vào chủ đề '${subject}'. Cung cấp ${count} prompt.`;
-            responseSchema = { type: Type.OBJECT, properties: { [subject]: { type: Type.ARRAY, items: { type: Type.STRING } } } };
-        } else {
-             throw new Error("Chủ đề gợi ý không hợp lệ.");
-        }
-
-        if (customInstruction && customInstruction.trim()) {
-            prompt += `\nLưu ý quan trọng: Luôn tích hợp yêu cầu sau vào mỗi prompt: "${customInstruction.trim()}".`;
-        }
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: {
-                parts: [
-                    { inlineData: { data: image.base64, mimeType: image.mimeType } },
-                    { text: prompt },
-                ],
-            },
-            config: { responseMimeType: "application/json", responseSchema: responseSchema }
-        });
-
-        const jsonStr = response.text?.trim();
-        if (!jsonStr) return {};
-        return JSON.parse(jsonStr);
-    });
-};
-
-export const enhancePrompt = async (customNeeds: string, image?: FileData): Promise<string> => {
-    return withSmartRetry(async (ai) => {
-        let prompt = `Bạn là một chuyên gia viết prompt cho AI tạo hình ảnh kiến trúc. Nhiệm vụ của bạn là nhận yêu cầu của người dùng (có thể là từ khóa, mô tả chi tiết, hoặc một hình ảnh) và biến chúng thành một prompt hoàn chỉnh, chuyên nghiệp bằng tiếng Việt.\n\nYêu cầu đầu vào:\n- Mô tả của người dùng: "${customNeeds}"\n${image ? '- Có một hình ảnh tham khảo được cung cấp.' : ''}\n\nNhiệm vụ:\n1. ${image ? 'Phân tích hình ảnh tham khảo để hiểu bối cảnh, phong cách kiến trúc, vật liệu và bố cục.' : ''}\n2. Dựa vào tất cả thông tin đầu vào, hãy tạo ra **DUY NHẤT MỘT** chuỗi prompt hoàn chỉnh và chi tiết.\n3. Cấu trúc prompt nên bao gồm các yếu tố sau (nếu có thể): loại công trình, phong cách thiết kế, góc nhìn camera, ánh sáng, thời tiết, vật liệu, bối cảnh xung quanh, và các chi tiết nghệ thuật khác để tạo ra một bức ảnh chân thực và ấn tượng.\n4. **KHÔNG** thêm bất kỳ lời dẫn, giải thích, hay định dạng nào khác. Chỉ trả về chuỗi prompt cuối cùng.`;
-        const parts: any[] = [];
-        if (image) parts.push({ inlineData: { data: image.base64, mimeType: image.mimeType } });
-        parts.push({ text: prompt });
-        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: { parts: parts } });
-        return response.text?.trim() || "";
-    });
-};
-
-export const generatePromptFromImageAndText = async (image: FileData, keywords: string): Promise<string> => {
-    return withSmartRetry(async (ai) => {
-        const prompt = `Phân tích hình ảnh và từ khóa ("${keywords}"). Trả về DUY NHẤT một chuỗi prompt tiếng Việt chi tiết theo cấu trúc sau, KHÔNG thêm bất kỳ lời dẫn, giải thích hay định dạng nào khác. Cấu trúc: "Biến thành ảnh chụp thực tế, [loại công trình], [phong cách thiết kế], [tone màu], [vật liệu], [các đặc điểm khác của công trình], [cảnh quan xung quanh], [thời gian]". Điền thông tin vào các mục trong ngoặc vuông dựa trên phân tích.`;
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: {
-                parts: [
-                    { inlineData: { data: image.base64, mimeType: image.mimeType } },
-                    { text: prompt },
-                ],
-            },
-        });
-        return response.text || "";
-    });
-};
-
-export const generateMoodboardPromptFromScene = async (sceneImage: FileData): Promise<string> => {
-     return withSmartRetry(async (ai) => {
-        const prompt = `Analyze this image of an interior or exterior scene. Identify the core design style, key materials, and color palette. Summarize these elements into a concise, descriptive prompt suitable for generating a moodboard. For example: "A minimalist interior with light oak wood, soft gray fabrics, and a neutral color palette." or "A tropical brutalist exterior with raw concrete, lush green plants, and black metal accents." Return ONLY the descriptive phrase, in Vietnamese, without any introductory text.`;
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: {
-                parts: [
-                    { inlineData: { data: sceneImage.base64, mimeType: sceneImage.mimeType } },
-                    { text: prompt },
-                ],
-            },
-        });
-        return response.text || "";
-    });
-};
-
-// Image Editing Wrappers
 export const editImage = async (prompt: string, image: FileData, numberOfImages: number = 1, jobId?: string) => {
-    return await generateEditedImages([
+    return generateGeminiEdit([
         { inlineData: { data: image.base64, mimeType: image.mimeType } },
         { text: prompt },
     ], numberOfImages, jobId);
 };
 
-export const editImageWithMask = async (prompt: string, baseImage: FileData, maskImage: FileData, numberOfImages: number = 1, jobId?: string) => {
-    return await generateEditedImages([
-        { inlineData: { data: baseImage.base64, mimeType: baseImage.mimeType } },
-        { inlineData: { data: maskImage.base64, mimeType: maskImage.mimeType } },
+export const editImageWithMask = async (prompt: string, image: FileData, mask: FileData, numberOfImages: number = 1, jobId?: string) => {
+    return generateGeminiEdit([
+        { inlineData: { data: image.base64, mimeType: image.mimeType } },
+        { inlineData: { data: mask.base64, mimeType: mask.mimeType } },
         { text: prompt },
     ], numberOfImages, jobId);
 };
 
-export const editImageWithReference = async (prompt: string, baseImage: FileData, referenceImage: FileData, numberOfImages: number = 1, jobId?: string) => {
-    return await generateEditedImages([
-        { inlineData: { data: baseImage.base64, mimeType: baseImage.mimeType } },
-        { inlineData: { data: referenceImage.base64, mimeType: referenceImage.mimeType } },
+export const editImageWithReference = async (prompt: string, source: FileData, ref: FileData, numberOfImages: number = 1, jobId?: string) => {
+    return generateGeminiEdit([
+        { inlineData: { data: source.base64, mimeType: source.mimeType } },
+        { inlineData: { data: ref.base64, mimeType: ref.mimeType } },
         { text: prompt },
     ], numberOfImages, jobId);
 };
 
-export const generateStagingImage = async (prompt: string, sceneImage: FileData, objectImages: FileData[], numberOfImages: number = 1, jobId?: string) => {
-    const parts = [
-        { inlineData: { data: sceneImage.base64, mimeType: sceneImage.mimeType } },
-        ...objectImages.map(objImg => ({ inlineData: { data: objImg.base64, mimeType: objImg.mimeType } })),
-        { text: prompt },
-    ];
-    return await generateEditedImages(parts, numberOfImages, jobId);
-};
-
-export const editImageWithMaskAndReference = async (prompt: string, baseImage: FileData, maskImage: FileData, referenceImage: FileData, numberOfImages: number = 1, jobId?: string) => {
-     return await generateEditedImages([
-        { inlineData: { data: baseImage.base64, mimeType: baseImage.mimeType } },
-        { inlineData: { data: maskImage.base64, mimeType: maskImage.mimeType } },
-        { inlineData: { data: referenceImage.base64, mimeType: referenceImage.mimeType } },
+export const editImageWithMaskAndReference = async (prompt: string, source: FileData, mask: FileData, ref: FileData, numberOfImages: number = 1, jobId?: string) => {
+    return generateGeminiEdit([
+        { inlineData: { data: source.base64, mimeType: source.mimeType } },
+        { inlineData: { data: mask.base64, mimeType: mask.mimeType } },
+        { inlineData: { data: ref.base64, mimeType: ref.mimeType } },
         { text: prompt },
     ], numberOfImages, jobId);
 };
 
-export const editImageWithMultipleReferences = async (prompt: string, baseImage: FileData, referenceImages: FileData[], numberOfImages: number = 1, jobId?: string) => {
-    const parts = [
-        { inlineData: { data: baseImage.base64, mimeType: baseImage.mimeType } },
-        ...referenceImages.map(refImg => ({ inlineData: { data: refImg.base64, mimeType: refImg.mimeType } })),
-        { text: prompt },
-    ];
-    return await generateEditedImages(parts, numberOfImages, jobId);
+export const editImageWithMultipleReferences = async (prompt: string, source: FileData, refs: FileData[], numberOfImages: number = 1, jobId?: string) => {
+    const parts: any[] = [{ inlineData: { data: source.base64, mimeType: source.mimeType } }];
+    refs.forEach(r => parts.push({ inlineData: { data: r.base64, mimeType: r.mimeType } }));
+    parts.push({ text: prompt });
+    return generateGeminiEdit(parts, numberOfImages, jobId);
 };
 
-export const editImageWithMaskAndMultipleReferences = async (prompt: string, baseImage: FileData, maskImage: FileData, referenceImages: FileData[], numberOfImages: number = 1, jobId?: string) => {
-    const parts = [
-        { inlineData: { data: baseImage.base64, mimeType: baseImage.mimeType } },
-        { inlineData: { data: maskImage.base64, mimeType: maskImage.mimeType } },
-        ...referenceImages.map(refImg => ({ inlineData: { data: refImg.base64, mimeType: refImg.mimeType } })),
-        { text: prompt },
+export const editImageWithMaskAndMultipleReferences = async (prompt: string, source: FileData, mask: FileData, refs: FileData[], numberOfImages: number = 1, jobId?: string) => {
+    const parts: any[] = [
+        { inlineData: { data: source.base64, mimeType: source.mimeType } },
+        { inlineData: { data: mask.base64, mimeType: mask.mimeType } }
     ];
-    return await generateEditedImages(parts, numberOfImages, jobId);
+    refs.forEach(r => parts.push({ inlineData: { data: r.base64, mimeType: r.mimeType } }));
+    parts.push({ text: prompt });
+    return generateGeminiEdit(parts, numberOfImages, jobId);
 };
 
-// Internal helper for edit images using Smart Retry
-const generateEditedImages = async (parts: any[], numberOfImages: number, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
+export const generateStagingImage = async (prompt: string, scene: FileData, objects: FileData[], numberOfImages: number = 1, jobId?: string) => {
+    const parts: any[] = [{ inlineData: { data: scene.base64, mimeType: scene.mimeType } }];
+    objects.forEach(o => parts.push({ inlineData: { data: o.base64, mimeType: o.mimeType } }));
+    parts.push({ text: prompt });
+    return generateGeminiEdit(parts, numberOfImages, jobId);
+};
+
+export const generateText = async (prompt: string): Promise<string> => {
     return withSmartRetry(async (ai) => {
-        const generateSingle = async (): Promise<{imageUrl: string, text: string}> => {
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: { parts },
-                config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
-            });
-            
-            let imageUrl = '';
-            let text = '';
-            for (const part of response.candidates[0].content.parts) {
-                if (part.text) text = part.text;
-                else if (part.inlineData) imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        const res = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [{ text: prompt }] }
+        });
+        return res.text || '';
+    });
+};
+
+export const generatePromptFromImageAndText = async (image: FileData, prompt: string): Promise<string> => {
+    return withSmartRetry(async (ai) => {
+        const res = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    { inlineData: { data: image.base64, mimeType: image.mimeType } },
+                    { text: `Analyze image. ${prompt}` }
+                ]
             }
-            
-            if (!imageUrl) {
-                if (text) console.warn("Model returned text only:", text);
-                throw new Error("The model did not return an edited image.");
-            }
-            return { imageUrl, text };
-        };
-        const promises = Array.from({ length: numberOfImages }, () => generateSingle());
-        return Promise.all(promises);
-    }, jobId);
-}
+        });
+        return res.text || '';
+    });
+};
+
+export const enhancePrompt = async (prompt: string, image?: FileData): Promise<string> => {
+    return withSmartRetry(async (ai) => {
+        const parts: any[] = [];
+        if (image) parts.push({ inlineData: { data: image.base64, mimeType: image.mimeType } });
+        parts.push({ text: `Enhance this prompt for architecture: ${prompt}` });
+        
+        const res = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts }
+        });
+        return res.text || '';
+    });
+};
+
+export const generateMoodboardPromptFromScene = async (image: FileData): Promise<string> => {
+    return generatePromptFromImageAndText(image, "Create a detailed moodboard prompt describing style, colors, and materials.");
+};
+
+export const generatePromptSuggestions = async (image: FileData, subject: string, count: number, instruction: string): Promise<Record<string, string[]>> => {
+    return withSmartRetry(async (ai) => {
+        const prompt = `Analyze this image. Provide ${count} prompts based on "${subject}". ${instruction}. Output strictly JSON.`;
+        const res = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    { inlineData: { data: image.base64, mimeType: image.mimeType } },
+                    { text: prompt }
+                ]
+            },
+            config: { responseMimeType: 'application/json' }
+        });
+        try { return JSON.parse(res.text || '{}'); } catch { return {}; }
+    });
+};
