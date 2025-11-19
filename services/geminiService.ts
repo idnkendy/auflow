@@ -38,7 +38,7 @@ const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promis
         const { data: apiKey, error } = await supabase.rpc('get_worker_key');
 
         if (error || !apiKey) {
-            console.warn("Supabase key rotation error:", error);
+            console.warn("Supabase key rotation error/empty:", error);
             // Fallback: Nếu DB lỗi, dùng key môi trường
             if (process.env.API_KEY) {
                 const key = process.env.API_KEY;
@@ -82,56 +82,76 @@ const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promis
 async function withSmartRetry<T>(
     operation: (ai: GoogleGenAI, currentKey: string) => Promise<T>, 
     jobId?: string,
-    maxRetries: number = 3 // Try up to 3 different keys from DB before falling back to Env
+    maxRetries: number = 4 // Increase retries to allow cycling through keys
 ): Promise<T> {
     let lastError: any;
-    let attempts = 0;
     let forceEnv = false;
+    let attempts = 0;
 
-    // Loop to try rotating DB keys
-    while (attempts <= maxRetries) {
+    while (attempts < maxRetries) {
+        let currentKey = "";
+        let isEnv = false;
+
         try {
-            const { ai, key, isEnvKey } = await getAIClient(jobId, forceEnv);
-            
-            // If we are forced to Env Key, just do it once and break if fail (handled by outer catch)
-            if (forceEnv && isEnvKey) {
-                 return await operation(ai, key);
-            }
+            // 1. Get Client
+            const client = await getAIClient(jobId, forceEnv);
+            currentKey = client.key;
+            isEnv = client.isEnvKey;
 
-            try {
-                return await operation(ai, key);
-            } catch (apiError: any) {
-                const status = apiError.status;
-                const msg = apiError.message || '';
+            // 2. Execute Operation
+            return await operation(client.ai, currentKey);
 
-                // Detect "Dead Key" scenarios
-                const isQuota = status === 429 || msg.includes('quota') || msg.includes('exhausted');
-                const isBilling = status === 400 && (msg.includes('billed users') || msg.includes('billing') || msg.includes('credits'));
-                
-                // If it's a DB key and it failed with Quota/Billing -> Kill it and Retry
-                if (!isEnvKey && (isQuota || isBilling)) {
-                    console.warn(`Key ...${key.slice(-4)} failed (Status ${status}). Marking exhausted and rotating.`);
-                    await markKeyAsExhausted(key); // Tell DB to skip this key next time
-                    attempts++; 
-                    continue; // Retry loop -> will fetch NEW key from DB
+        } catch (error: any) {
+            lastError = error;
+            const status = error.status;
+            const msg = error.message || '';
+
+            // Detect specific errors
+            const isQuota = status === 429 || msg.includes('quota') || msg.includes('exhausted');
+            const isBilling = status === 400 && (msg.includes('billed users') || msg.includes('billing') || msg.includes('credits'));
+            const isSystemBusy = msg === "SYSTEM_BUSY";
+
+            // Case A: System Busy (DB has no keys ready)
+            if (isSystemBusy) {
+                if (!forceEnv) {
+                    // Maybe DB is just resetting? Wait a bit and retry once more with DB
+                    if (attempts < 2) {
+                        console.warn("System busy. Waiting for DB reset...");
+                        await new Promise(r => setTimeout(r, 1000));
+                        attempts++;
+                        continue;
+                    } 
+                    // If still busy, force switch to Env Key
+                    console.warn("System busy persistence. Switching to Env Key.");
+                    forceEnv = true;
+                    attempts++;
+                    continue;
+                } else {
+                     break; // Even env key failed or N/A
                 }
-                
-                throw apiError; // Other errors (like Bad Request content) -> throw up
             }
 
-        } catch (e: any) {
-            lastError = e;
-            if (e.message === "SYSTEM_BUSY") break; // DB is empty/down
-            
-            // Check if we should switch to Env key as last resort
-            if (!forceEnv && attempts >= maxRetries && process.env.API_KEY) {
-                console.warn("All DB keys exhausted/failed. Switching to Environment Key.");
-                forceEnv = true;
-                attempts = 0; // Reset attempts for Env key try
-                maxRetries = 1; // Only try Env key once
-            } else {
-                throw e; // Fatal
+            // Case B: Quota/Billing Error (Key is dead)
+            if (isQuota || isBilling) {
+                if (!isEnv && currentKey) {
+                    console.warn(`Key ...${currentKey.slice(-4)} failed (${status}). Marking exhausted.`);
+                    await markKeyAsExhausted(currentKey); // Mark THIS key as bad
+                    attempts++; 
+                    continue; // Loop again -> getAIClient will pick the NEXT available key
+                } else if (isEnv && process.env.API_KEY) {
+                     // Env key died? Nothing left to do unless we want to wait longer.
+                     break;
+                }
             }
+
+            // Case C: Other Errors (e.g. Bad Prompt, Server Error 500)
+            // Don't retry for bad requests, throw immediately
+            if (status === 400 && !isBilling) {
+                throw error;
+            }
+            
+            // For other transient errors, maybe retry? For now, throw to be safe.
+            throw error;
         }
     }
 
@@ -347,34 +367,6 @@ export const generateMoodboardPromptFromScene = async (sceneImage: FileData): Pr
     });
 };
 
-// Internal helper for edit images using Smart Retry
-const generateEditedImages = async (parts: any[], numberOfImages: number, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
-    return withSmartRetry(async (ai) => {
-        const generateSingle = async (): Promise<{imageUrl: string, text: string}> => {
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: { parts },
-                config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
-            });
-            
-            let imageUrl = '';
-            let text = '';
-            for (const part of response.candidates[0].content.parts) {
-                if (part.text) text = part.text;
-                else if (part.inlineData) imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            }
-            
-            if (!imageUrl) {
-                if (text) console.warn("Model returned text only:", text);
-                throw new Error("The model did not return an edited image.");
-            }
-            return { imageUrl, text };
-        };
-        const promises = Array.from({ length: numberOfImages }, () => generateSingle());
-        return Promise.all(promises);
-    }, jobId);
-}
-
 // Image Editing Wrappers
 export const editImage = async (prompt: string, image: FileData, numberOfImages: number = 1, jobId?: string) => {
     return await generateEditedImages([
@@ -435,3 +427,31 @@ export const editImageWithMaskAndMultipleReferences = async (prompt: string, bas
     ];
     return await generateEditedImages(parts, numberOfImages, jobId);
 };
+
+// Internal helper for edit images using Smart Retry
+const generateEditedImages = async (parts: any[], numberOfImages: number, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
+    return withSmartRetry(async (ai) => {
+        const generateSingle = async (): Promise<{imageUrl: string, text: string}> => {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts },
+                config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
+            });
+            
+            let imageUrl = '';
+            let text = '';
+            for (const part of response.candidates[0].content.parts) {
+                if (part.text) text = part.text;
+                else if (part.inlineData) imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+            
+            if (!imageUrl) {
+                if (text) console.warn("Model returned text only:", text);
+                throw new Error("The model did not return an edited image.");
+            }
+            return { imageUrl, text };
+        };
+        const promises = Array.from({ length: numberOfImages }, () => generateSingle());
+        return Promise.all(promises);
+    }, jobId);
+}
