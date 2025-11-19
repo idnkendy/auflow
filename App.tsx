@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './services/supabaseClient';
-import { Tool, FileData } from './types';
+import { Tool, FileData, UserStatus } from './types';
 import Header from './components/Header';
 import Navigation from './components/Navigation';
 import ImageGenerator from './components/ImageGenerator';
@@ -26,10 +26,12 @@ import AITechnicalDrawings from './components/AITechnicalDrawings';
 import SketchConverter from './components/SketchConverter';
 import LuBanRuler from './components/LuBanRuler';
 import FengShui from './components/FengShui';
+import UserProfile from './components/UserProfile';
 import { initialToolStates, ToolStates } from './state/toolState';
 import Homepage from './components/Homepage';
 import AuthPage from './components/auth/AuthPage';
 import Spinner from './components/Spinner';
+import { getUserStatus } from './services/paymentService';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'homepage' | 'auth' | 'app'>('homepage');
@@ -39,6 +41,7 @@ const App: React.FC = () => {
   const [activeTool, setActiveTool] = useState<Tool>(Tool.ArchitecturalRendering);
   const [toolStates, setToolStates] = useState<ToolStates>(initialToolStates);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
 
   // Check for pending tab focus to auto-login after email verification
   useEffect(() => {
@@ -78,6 +81,21 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, [view]);
 
+  // Define fetchUserStatus using useCallback to be stable
+  const fetchUserStatus = useCallback(async () => {
+    if (session?.user) {
+      const status = await getUserStatus(session.user.id);
+      setUserStatus(status);
+    } else {
+      setUserStatus(null);
+    }
+  }, [session]);
+
+  // Fetch credits when session changes or active tool changes
+  useEffect(() => {
+    fetchUserStatus();
+  }, [fetchUserStatus, activeTool]); 
+
   const handleThemeToggle = () => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
   };
@@ -111,7 +129,7 @@ const App: React.FC = () => {
       }
   }
 
-  const handleToolStateChange = <T extends Tool>(
+  const handleToolStateChange = <T extends keyof ToolStates>(
     tool: T,
     newState: Partial<ToolStates[T]>
   ) => {
@@ -123,6 +141,25 @@ const App: React.FC = () => {
       },
     }));
   };
+
+  const handleUpgrade = () => {
+      if (session) {
+          setView('app');
+          setActiveTool(Tool.Pricing);
+          // Default to 'plans' tab when upgrading
+          handleToolStateChange(Tool.Pricing, { activeTab: 'plans' });
+      }
+  }
+  
+  const handleOpenProfile = () => {
+      if (session) {
+          setView('app');
+          setActiveTool(Tool.Pricing);
+          // Default to 'profile' tab when clicking profile
+          handleToolStateChange(Tool.Pricing, { activeTab: 'profile' });
+      }
+  }
+
 
   const handleSendToViewSync = (image: FileData) => {
      handleToolStateChange(Tool.ViewSync, {
@@ -258,6 +295,15 @@ const App: React.FC = () => {
         />;
       case Tool.History:
         return <HistoryPanel />;
+      case Tool.Pricing:
+        return session ? (
+            <UserProfile 
+                session={session} 
+                initialTab={toolStates.Pricing.activeTab || 'plans'} 
+                onTabChange={(tab) => handleToolStateChange(Tool.Pricing, { activeTab: tab })}
+                onPurchaseSuccess={fetchUserStatus}
+            /> 
+        ) : null;
       default:
         return <ImageGenerator 
             state={toolStates.ArchitecturalRendering}
@@ -277,11 +323,29 @@ const App: React.FC = () => {
   
   if (session) {
     if (view === 'homepage') {
-        return <Homepage onStart={() => setView('app')} onAuthNavigate={() => setView('app')} session={session} onGoToGallery={handleOpenGallery} />;
+        return (
+            <Homepage 
+                onStart={() => setView('app')} 
+                onAuthNavigate={() => setView('app')} 
+                session={session} 
+                onGoToGallery={handleOpenGallery}
+                onUpgrade={handleUpgrade}
+                onOpenProfile={handleOpenProfile}
+            />
+        );
     }
     return (
         <div className="min-h-screen bg-main-bg dark:bg-gray-900 font-sans flex flex-col transition-colors duration-300">
-            <Header onGoHome={handleGoHome} onThemeToggle={handleThemeToggle} theme={theme} onSignOut={handleSignOut} onOpenGallery={handleOpenGallery} />
+            <Header 
+                onGoHome={handleGoHome} 
+                onThemeToggle={handleThemeToggle} 
+                theme={theme} 
+                onSignOut={handleSignOut} 
+                onOpenGallery={handleOpenGallery} 
+                onUpgrade={handleUpgrade} 
+                onOpenProfile={handleOpenProfile} 
+                userStatus={userStatus}
+            />
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row gap-6 flex-grow">
                 <Navigation activeTool={activeTool} setActiveTool={setActiveTool} />
                 <main className="flex-1 bg-surface dark:bg-dark-bg p-6 sm:p-8 rounded-lg shadow-sm overflow-auto">

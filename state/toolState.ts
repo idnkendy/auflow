@@ -1,3 +1,4 @@
+
 import { FileData, AspectRatio, Tool } from '../types';
 
 // Định nghĩa cấu trúc trạng thái cho từng công cụ
@@ -245,6 +246,9 @@ export interface FengShuiState {
     vanKhanType: string;
 }
 
+export interface PricingState {
+    activeTab?: 'profile' | 'plans' | 'history';
+}
 
 // Khởi tạo giá trị mặc định cho trạng thái của tất cả công cụ
 export const initialToolStates = {
@@ -478,6 +482,9 @@ export const initialToolStates = {
         eventType: 'dong-tho',
         vanKhanType: 'dong-tho',
     } as FengShuiState,
+    [Tool.Pricing]: {
+        activeTab: 'plans'
+    } as PricingState,
     [Tool.History]: {}, // History doesn't need persistent state in this way
 };
 

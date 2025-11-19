@@ -8,12 +8,14 @@ interface HomepageProps {
   onAuthNavigate: (mode: 'login' | 'signup') => void;
   session?: Session | null;
   onGoToGallery?: () => void;
+  onUpgrade?: () => void;
+  onOpenProfile?: () => void;
 }
 
 const StyleIcon = () => ( <svg className="h-10 w-10 text-teal-400" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M25.0391 16.2109C27.6172 17.0312 29.6094 18.9844 30.7031 21.5625C31.7969 24.1406 31.9141 27.1094 30.9375 29.8828C29.9609 32.6562 27.9297 34.9219 25.1953 36.1719C22.4609 37.4219 19.3359 37.5391 16.5234 36.4844C13.7109 35.4297 11.5234 33.3203 10.4297 30.6641C9.33594 28.0078 9.41406 25.0391 10.625 22.3438C11.8359 19.6484 14.1016 17.5 16.9141 16.3281C19.7266 15.1562 22.8906 15.1484 25.0391 16.2109Z" stroke="currentColor" strokeWidth="2"/><path d="M15.5859 22.4219C16.9141 21.6016 18.6328 21.4062 20.1953 21.9141C21.7578 22.4219 23.0469 23.5938 23.7891 25.1172C24.5312 26.6406 24.6484 28.3984 24.1016 29.9609C23.5547 31.5234 22.3828 32.7734 20.8203 33.4375" stroke="currentColor" strokeWidth="2"/><path d="M13 3C11.3438 4.19531 10.0391 5.625 9.14062 7.25M17.8906 5.15625C18.6719 6.48438 19.1484 7.94531 19.2969 9.46875M23 3C23.8359 4.89062 24.0391 6.94531 23.5547 8.92188M28 4.25C27.6172 6.55469 26.6406 8.70312 25.1953 10.5312M15.5 12.0312C14 11.25 12.2812 10.8594 10.5 10.9688" stroke="currentColor" strokeWidth="2"/></svg> );
 const VisulizationIcon = () => ( <svg className="h-10 w-10 text-teal-400" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M33 13V27M7 13V27M13 7H27M13 33H27M20 7V13M20 27V33M7 20H13M27 20H33M20 13L7 7L20 1L33 7L20 13Z" stroke="currentColor" strokeWidth="2"/><path d="M20 27L7 21V7L20 13V27Z" stroke="currentColor" strokeWidth="2"/><path d="M20 27L33 21V7L20 13V27Z" stroke="currentColor" strokeWidth="2"/></svg> );
 const LayoutsIcon = () => ( <svg className="h-10 w-10 text-teal-400" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 29C24.9706 29 29 24.9706 29 20C29 15.0294 24.9706 11 20 11C15.0294 11 11 15.0294 11 20C11 24.9706 15.0294 29 20 29Z" stroke="currentColor" strokeWidth="2"/><path d="M20 11V3M20 37V29M29 20H37M3 20H11M13.2217 13.2217L7.56445 7.56445M32.4355 32.4355L26.7783 26.7783M13.2217 26.7783L7.56445 32.4355M32.4355 7.56445L26.7783 13.2217" stroke="currentColor" strokeWidth="2"/></svg> );
-const InstagramIcon = () => (<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.85s-.012 3.584-.07 4.85c-.148 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07s-3.584-.012-4.85-.07c-3.252-.148-4.771-1.691-4.919-4.919-.058-1.265-.07-1.645-.07-4.85s.012-3.584.07-4.85c.148-3.225 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.85-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948s.014 3.667.072 4.947c.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072s3.667-.014 4.947-.072c4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.947s-.014-3.667-.072-4.947c-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.689-.073-4.948-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.162 6.162 6.162 6.162-2.759 6.162-6.162-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.441 1.441 1.441 1.441-.645 1.441-1.441-.645-1.44-1.441-1.44z"></path></svg>);
+const InstagramIcon = () => (<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.85s-.012 3.584-.07 4.85c-.148 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07s-3.584-.012-4.85-.07c-3.252-.148-4.771-1.691-4.919-4.919-.058-1.265-.07-1.645-.07-4.85s.012-3.584.07-4.85c.148-3.225 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.85-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948s.014 3.667.072 4.947c.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072s3.667-.014 4.947-.072c4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.947s-.014-3.667-.072-4.947c-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.689-.073-4.948-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.162 6.162 6.162 6.162-2.759 6.162-6.162-2.759 6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.441 1.441 1.441 1.441-.645 1.441-1.441-.645-1.44-1.441-1.44z"></path></svg>);
 const FacebookIcon = () => (<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.323-1.325z"></path></svg>);
 const TwitterIcon = () => (<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482c-4.11- .205-7.748-2.17-10.175-5.17a4.93 4.93 0 001.524 6.572 4.903 4.903 0 01-2.228-.616c-.002.018-.002.037-.002.055a4.925 4.925 0 003.946 4.827 4.996 4.996 0 01-2.223.084 4.926 4.926 0 004.6 3.42 9.86 9.86 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63a9.935 9.935 0 002.44-2.548z"></path></svg>);
 
@@ -41,10 +43,23 @@ const StarIcon = () => (
     </svg>
 );
 
-const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery }) => {
+const ProfileIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery, onUpgrade, onOpenProfile }) => {
     return (
         <div style={{ backgroundColor: 'rgb(229, 231, 235)' }} className="text-gray-800 font-sans antialiased">
-            <Header onStart={onStart} onAuthNavigate={onAuthNavigate} session={session} onGoToGallery={onGoToGallery} />
+            <Header 
+                onStart={onStart} 
+                onAuthNavigate={onAuthNavigate} 
+                session={session} 
+                onGoToGallery={onGoToGallery} 
+                onUpgrade={onUpgrade}
+                onOpenProfile={onOpenProfile}
+            />
             <main>
                 <Hero onStart={onStart} />
                 <div className="bg-gray-200">
@@ -58,7 +73,7 @@ const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, o
     );
 };
 
-const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery }) => {
+const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery, onUpgrade, onOpenProfile }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -120,13 +135,31 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                                         <p className="text-sm font-semibold text-gray-800">Tài khoản của tôi</p>
                                     </div>
                                     
-                                    <button 
-                                        onClick={() => { onStart(); setIsDropdownOpen(false); }} // Navigate to app for upgrade if needed or just placeholder
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
-                                    >
-                                        <StarIcon />
-                                        Nâng cấp gói
-                                    </button>
+                                    {onOpenProfile && (
+                                        <button 
+                                            onClick={() => { 
+                                                onOpenProfile(); 
+                                                setIsDropdownOpen(false); 
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
+                                        >
+                                            <ProfileIcon />
+                                            Hồ sơ cá nhân
+                                        </button>
+                                    )}
+
+                                    {onUpgrade && (
+                                        <button 
+                                            onClick={() => { 
+                                                onUpgrade(); 
+                                                setIsDropdownOpen(false); 
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
+                                        >
+                                            <StarIcon />
+                                            Nâng cấp gói
+                                        </button>
+                                    )}
 
                                     {onGoToGallery && (
                                          <button 
