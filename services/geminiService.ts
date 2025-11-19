@@ -43,9 +43,40 @@ const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: stri
     }
 };
 
+// Helper function for fallback image generation using Flash model
+const generateImageFallback = async (prompt: string, numberOfImages: number, jobId?: string): Promise<string[]> => {
+    console.warn("Falling back to gemini-2.5-flash-image due to billing/quota limits.");
+    const { ai } = await getAIClient(jobId);
+    
+    const generateSingle = async (): Promise<string> => {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [{ text: prompt }],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
+
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
+        throw new Error("No image data in fallback response");
+    };
+
+    // Run in parallel for multiple images
+    const promises = Array.from({ length: numberOfImages }, () => generateSingle());
+    return Promise.all(promises);
+};
+
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1, jobId?: string): Promise<string[]> => {
     try {
         const { ai } = await getAIClient(jobId);
+        
+        // Try the high-quality model first
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
             prompt: prompt,
@@ -58,9 +89,24 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
         
         return response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
 
-    } catch (error) {
-        console.error("Error generating image:", error);
-        throw error; // Re-throw to let component handle retries or failure
+    } catch (error: any) {
+        console.error("Error generating image with Imagen:", error);
+
+        // Check for specific billing or permission errors to trigger fallback
+        // 400: Billing required, 403: Permission denied, 429: Quota exceeded
+        if (
+            error.status === 400 || 
+            error.status === 403 || 
+            (error.message && (
+                error.message.includes("billed users") || 
+                error.message.includes("quota") ||
+                error.message.includes("permission")
+            ))
+        ) {
+            return await generateImageFallback(prompt, numberOfImages, jobId);
+        }
+        
+        throw error; // Re-throw other errors
     }
 };
 
