@@ -86,8 +86,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         numberOfImages, aspectRatio 
     } = state;
     
-    const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
     const [retryCount, setRetryCount] = useState(0);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -187,7 +187,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         sourceImage: FileData | null, 
         referenceImage: FileData | null, 
         numberOfImages: number,
-        aspectRatio: AspectRatio
+        aspectRatio: AspectRatio,
+        jobId?: string
     ): Promise<string[]> => {
          if (sourceImage) {
             // Image-to-Image Generation
@@ -196,16 +197,16 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
             let results;
             if (referenceImage) {
                 const promptWithRef = `${promptForService} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
-                results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages);
+                results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages, jobId);
             } else {
-                results = await geminiService.editImage(promptForService, sourceImage, numberOfImages);
+                results = await geminiService.editImage(promptForService, sourceImage, numberOfImages, jobId);
             }
             return results.map(r => r.imageUrl);
     
         } else {
             // Text-to-Image Generation
             const promptForService = `${prompt}, photorealistic architectural rendering, high detail, masterpiece`;
-            return await geminiService.generateImage(promptForService, aspectRatio, numberOfImages);
+            return await geminiService.generateImage(promptForService, aspectRatio, numberOfImages, jobId);
         }
     };
 
@@ -254,7 +255,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                 try {
                      if (jobId) await jobService.updateJobStatus(jobId, 'processing');
                      
-                     imageUrls = await performGeneration(customPrompt, sourceImage, referenceImage, numberOfImages, aspectRatio);
+                     // Pass jobId to performGeneration to track API Key
+                     imageUrls = await performGeneration(customPrompt, sourceImage, referenceImage, numberOfImages, aspectRatio, jobId || undefined);
                      
                      success = true;
                      break; // Success!

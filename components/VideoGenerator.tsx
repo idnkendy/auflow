@@ -124,7 +124,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
 
             if (jobId) await jobService.updateJobStatus(jobId, 'processing');
 
-            const url = await geminiService.generateVideo(prompt, startImage || undefined);
+            // Pass jobId to generateVideo
+            const url = await geminiService.generateVideo(prompt, startImage || undefined, jobId || undefined);
             onStateChange({ generatedVideoUrl: url });
 
             if (jobId) await jobService.updateJobStatus(jobId, 'completed', url);

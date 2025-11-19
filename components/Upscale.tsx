@@ -18,12 +18,20 @@ interface UpscaleProps {
     onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits, onDeductCredits }) => {
+const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { sourceImage, isLoading, error, upscaledImages, numberOfImages } = state;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const upscalePrompt = "Upscale this image to a high resolution. Enhance the details, textures, and lighting to make it look photorealistic and professional. Do not change the composition or the core design.";
+    
+    // Dynamic cost calculation
+    const cost = numberOfImages * 10;
 
     const handleUpscale = async () => {
+        if (onDeductCredits && userCredits < cost) {
+             onStateChange({ error: `Bạn không đủ credits. Cần ${cost} credits nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
+             return;
+        }
+
         if (!sourceImage) {
             onStateChange({ error: 'Vui lòng tải lên một hình ảnh để nâng cấp.' });
             return;
@@ -31,6 +39,10 @@ const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits, on
         onStateChange({ isLoading: true, error: null, upscaledImages: [] });
 
         try {
+             if (onDeductCredits) {
+                await onDeductCredits(cost, `Upscale ảnh (${numberOfImages} ảnh)`);
+            }
+
             const results = await geminiService.editImage(upscalePrompt, sourceImage, numberOfImages);
             const imageUrls = results.map(r => r.imageUrl);
             onStateChange({ upscaledImages: imageUrls });
@@ -79,10 +91,26 @@ const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits, on
                      <div className="w-full max-w-lg mt-6">
                         <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
                     </div>
+
                     <div className="w-full max-w-lg mt-6">
+                         <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-3 border border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+                                </svg>
+                                <span>Chi phí: <span className="font-bold text-text-primary dark:text-white">{cost} Credits</span></span>
+                            </div>
+                            <div className="text-xs">
+                                {userCredits < cost ? (
+                                    <span className="text-red-500 font-semibold">Không đủ (Có: {userCredits})</span>
+                                ) : (
+                                    <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                                )}
+                            </div>
+                        </div>
                         <button
                             onClick={handleUpscale}
-                            disabled={isLoading || !sourceImage}
+                            disabled={isLoading || !sourceImage || userCredits < cost}
                             className="w-full flex justify-center items-center gap-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                         >
                             {isLoading ? <><Spinner /> Đang nâng cấp...</> : 'Bắt Đầu Nâng Cấp'}

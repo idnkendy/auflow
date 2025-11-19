@@ -346,7 +346,7 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                         <button
                             onClick={handleGenerate}
                             disabled={isLoading || !customPrompt.trim() || isUpscaling || userCredits < cost}
-                            className="w-full flex justify-center items-center gap-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                            className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                         >
                            {isLoading ? <><Spinner /> Đang Render...</> : 'Bắt đầu Render'}
                         </button>

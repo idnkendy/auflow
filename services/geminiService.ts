@@ -3,9 +3,10 @@
 import { GoogleGenAI, GenerateContentResponse, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
 import { supabase } from "./supabaseClient";
+import { updateJobApiKey } from "./jobService";
 
 // Hàm lấy Dynamic API Key từ Supabase (Load Balancing)
-const getAIClient = async (): Promise<{ ai: GoogleGenAI, key: string }> => {
+const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: string }> => {
     try {
         // Gọi Stored Procedure 'get_worker_key' từ Supabase
         const { data: apiKey, error } = await supabase.rpc('get_worker_key');
@@ -15,13 +16,20 @@ const getAIClient = async (): Promise<{ ai: GoogleGenAI, key: string }> => {
             // Fallback: Nếu DB lỗi, thử dùng key dự phòng từ env (nếu có)
             if (process.env.API_KEY) {
                 console.warn("Using fallback env API KEY");
+                const key = process.env.API_KEY;
+                if (jobId) await updateJobApiKey(jobId, "FALLBACK_ENV_KEY");
                 return { 
-                    ai: new GoogleGenAI({ apiKey: process.env.API_KEY }),
-                    key: process.env.API_KEY 
+                    ai: new GoogleGenAI({ apiKey: key }),
+                    key: key 
                 };
             }
             // Throw specific error for retry logic
             throw new Error("SYSTEM_BUSY");
+        }
+
+        // Log the key used for this specific job
+        if (jobId) {
+            await updateJobApiKey(jobId, apiKey);
         }
 
         return { 
@@ -35,9 +43,9 @@ const getAIClient = async (): Promise<{ ai: GoogleGenAI, key: string }> => {
     }
 };
 
-export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1): Promise<string[]> => {
+export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1, jobId?: string): Promise<string[]> => {
     try {
-        const { ai } = await getAIClient();
+        const { ai } = await getAIClient(jobId);
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
             prompt: prompt,
@@ -58,10 +66,11 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
 
 export const generateVideo = async (
     prompt: string, 
-    startImage?: FileData
+    startImage?: FileData,
+    jobId?: string
 ): Promise<string> => {
     try {
-        const { ai, key } = await getAIClient();
+        const { ai, key } = await getAIClient(jobId);
         let finalPrompt = prompt;
         let imageForApi: FileData | undefined = startImage;
 
@@ -335,9 +344,9 @@ export const generateMoodboardPromptFromScene = async (sceneImage: FileData): Pr
 };
 
 
-const generateEditedImages = async (parts: any[], numberOfImages: number): Promise<{imageUrl: string, text: string}[]> => {
+const generateEditedImages = async (parts: any[], numberOfImages: number, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     // Helper function needs to fetch client
-    const { ai } = await getAIClient();
+    const { ai } = await getAIClient(jobId);
     const generateSingle = async (): Promise<{imageUrl: string, text: string}> => {
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
@@ -372,7 +381,7 @@ const generateEditedImages = async (parts: any[], numberOfImages: number): Promi
     return Promise.all(promises);
 }
 
-export const editImage = async (prompt: string, image: FileData, numberOfImages: number = 1): Promise<{imageUrl: string, text: string}[]> => {
+export const editImage = async (prompt: string, image: FileData, numberOfImages: number = 1, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     try {
         const parts = [
             {
@@ -385,14 +394,14 @@ export const editImage = async (prompt: string, image: FileData, numberOfImages:
                 text: prompt,
             },
         ];
-        return await generateEditedImages(parts, numberOfImages);
+        return await generateEditedImages(parts, numberOfImages, jobId);
     } catch (error) {
         console.error("Error editing image:", error);
         throw error;
     }
 };
 
-export const editImageWithMask = async (prompt: string, baseImage: FileData, maskImage: FileData, numberOfImages: number = 1): Promise<{imageUrl: string, text: string}[]> => {
+export const editImageWithMask = async (prompt: string, baseImage: FileData, maskImage: FileData, numberOfImages: number = 1, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     try {
         const parts = [
             {
@@ -411,14 +420,14 @@ export const editImageWithMask = async (prompt: string, baseImage: FileData, mas
                 text: prompt,
             },
         ];
-        return await generateEditedImages(parts, numberOfImages);
+        return await generateEditedImages(parts, numberOfImages, jobId);
     } catch (error) {
         console.error("Error editing image with mask:", error);
         throw error;
     }
 };
 
-export const editImageWithReference = async (prompt: string, baseImage: FileData, referenceImage: FileData, numberOfImages: number = 1): Promise<{imageUrl: string, text: string}[]> => {
+export const editImageWithReference = async (prompt: string, baseImage: FileData, referenceImage: FileData, numberOfImages: number = 1, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     try {
         const parts = [
             {
@@ -437,14 +446,14 @@ export const editImageWithReference = async (prompt: string, baseImage: FileData
                 text: prompt,
             },
         ];
-       return await generateEditedImages(parts, numberOfImages);
+       return await generateEditedImages(parts, numberOfImages, jobId);
     } catch (error) {
         console.error("Error editing image with reference:", error);
         throw error;
     }
 };
 
-export const generateStagingImage = async (prompt: string, sceneImage: FileData, objectImages: FileData[], numberOfImages: number = 1): Promise<{imageUrl: string, text: string}[]> => {
+export const generateStagingImage = async (prompt: string, sceneImage: FileData, objectImages: FileData[], numberOfImages: number = 1, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     try {
         const parts = [
             { // The scene image
@@ -463,14 +472,14 @@ export const generateStagingImage = async (prompt: string, sceneImage: FileData,
                 text: prompt,
             },
         ];
-       return await generateEditedImages(parts, numberOfImages);
+       return await generateEditedImages(parts, numberOfImages, jobId);
     } catch (error) {
         console.error("Error generating staging image:", error);
         throw error;
     }
 };
 
-export const editImageWithMaskAndReference = async (prompt: string, baseImage: FileData, maskImage: FileData, referenceImage: FileData, numberOfImages: number = 1): Promise<{imageUrl: string, text: string}[]> => {
+export const editImageWithMaskAndReference = async (prompt: string, baseImage: FileData, maskImage: FileData, referenceImage: FileData, numberOfImages: number = 1, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     try {
         const parts = [
             {
@@ -495,14 +504,14 @@ export const editImageWithMaskAndReference = async (prompt: string, baseImage: F
                 text: prompt,
             },
         ];
-       return await generateEditedImages(parts, numberOfImages);
+       return await generateEditedImages(parts, numberOfImages, jobId);
     } catch (error) {
         console.error("Error editing image with mask and reference:", error);
         throw error;
     }
 };
 
-export const editImageWithMultipleReferences = async (prompt: string, baseImage: FileData, referenceImages: FileData[], numberOfImages: number = 1): Promise<{imageUrl: string, text: string}[]> => {
+export const editImageWithMultipleReferences = async (prompt: string, baseImage: FileData, referenceImages: FileData[], numberOfImages: number = 1, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     try {
         const parts = [
             {
@@ -521,14 +530,14 @@ export const editImageWithMultipleReferences = async (prompt: string, baseImage:
                 text: prompt,
             },
         ];
-       return await generateEditedImages(parts, numberOfImages);
+       return await generateEditedImages(parts, numberOfImages, jobId);
     } catch (error) {
         console.error("Error editing image with multiple references:", error);
         throw error;
     }
 };
 
-export const editImageWithMaskAndMultipleReferences = async (prompt: string, baseImage: FileData, maskImage: FileData, referenceImages: FileData[], numberOfImages: number = 1): Promise<{imageUrl: string, text: string}[]> => {
+export const editImageWithMaskAndMultipleReferences = async (prompt: string, baseImage: FileData, maskImage: FileData, referenceImages: FileData[], numberOfImages: number = 1, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     try {
         const parts = [
             {
@@ -553,7 +562,7 @@ export const editImageWithMaskAndMultipleReferences = async (prompt: string, bas
                 text: prompt,
             },
         ];
-       return await generateEditedImages(parts, numberOfImages);
+       return await generateEditedImages(parts, numberOfImages, jobId);
     } catch (error) {
         console.error("Error editing image with mask and multiple references:", error);
         throw error;

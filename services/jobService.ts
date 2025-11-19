@@ -48,3 +48,18 @@ export const updateJobStatus = async (jobId: string, status: 'pending' | 'proces
         console.error(`Exception updating job ${jobId}:`, e);
     }
 };
+
+export const updateJobApiKey = async (jobId: string, apiKey: string) => {
+    try {
+        // Only update if jobId is provided
+        if (!jobId) return;
+        
+        await supabase
+            .from('generation_jobs')
+            .update({ api_key_used: apiKey })
+            .eq('id', jobId);
+            
+    } catch (e) {
+        console.error("Error logging API key usage:", e);
+    }
+};

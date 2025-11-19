@@ -207,9 +207,11 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
             let results;
              if (referenceImage) {
                  const promptWithRef = `${promptForService} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
-                 results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages);
+                 // Pass jobId to API call
+                 results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages, jobId || undefined);
             } else {
-                 results = await geminiService.editImage(promptForService, sourceImage, numberOfImages);
+                 // Pass jobId to API call
+                 results = await geminiService.editImage(promptForService, sourceImage, numberOfImages, jobId || undefined);
             }
             
             const imageUrls = results.map(r => r.imageUrl);

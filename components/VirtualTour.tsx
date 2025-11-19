@@ -26,8 +26,9 @@ interface VirtualTourProps {
     onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCredits, onDeductCredits }) => {
+const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { sourceImage, currentTourImage, isLoading, error, tourStepSize, tourHistory } = state;
+    const costPerStep = 10;
 
     const handleTourFileSelect = (fileData: FileData | null) => {
         onStateChange({
@@ -40,6 +41,12 @@ const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCre
 
     const handleTourStep = async (action: 'pan-left' | 'pan-right' | 'tilt-up' | 'tilt-down' | 'orbit-left' | 'orbit-right' | 'zoom-in' | 'zoom-out') => {
         if (!currentTourImage) return;
+        
+        if (onDeductCredits && userCredits < costPerStep) {
+             onStateChange({ error: `Bạn không đủ credits. Cần ${costPerStep} credits/bước nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
+             return;
+        }
+
         onStateChange({ isLoading: true, error: null });
 
         let prompt = '';
@@ -60,6 +67,10 @@ const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCre
         }
 
         try {
+             if (onDeductCredits) {
+                await onDeductCredits(costPerStep, `Virtual Tour (${action})`);
+            }
+
             const results = await geminiService.editImage(prompt, currentTourImage, 1);
             const imageUrl = results[0].imageUrl;
             const newImage: FileData = {
@@ -119,6 +130,23 @@ const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCre
                             <span className="font-semibold text-text-primary dark:text-white w-12 text-center">{tourStepSize}°</span>
                         </div>
                     </div>
+                    
+                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+                            </svg>
+                            <span>Chi phí: <span className="font-bold text-text-primary dark:text-white">{costPerStep} / bước</span></span>
+                        </div>
+                        <div className="text-xs">
+                            {userCredits < costPerStep ? (
+                                <span className="text-red-500 font-semibold">Không đủ</span>
+                            ) : (
+                                <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                            )}
+                        </div>
+                    </div>
+
                     <button
                         onClick={() => handleTourFileSelect(sourceImage)}
                         disabled={!sourceImage || isLoading}
