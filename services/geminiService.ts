@@ -1,22 +1,17 @@
-
 // Fix: Imported GenerateVideosResponse to correctly type the video generation operation.
 import { GoogleGenAI, GenerateContentResponse, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
 
-// Sử dụng giá trị rỗng nếu không có key để tránh crash ứng dụng ngay khi mở
-const API_KEY = process.env.API_KEY || "";
+const VITE_API_KEY = import.meta.env.VITE_API_KEY;
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+//if (!VITE_API_KEY) {
+//    throw new Error("API_KEY environment variable not set.");
+//}
 
-// Hàm kiểm tra key trước khi gọi API
-const ensureApiKey = () => {
-    if (!API_KEY) {
-        throw new Error("API Key chưa được cấu hình. Vui lòng kiểm tra biến môi trường.");
-    }
-};
+const ai = new GoogleGenAI({ apiKey: VITE_API_KEY });
+
 
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1): Promise<string[]> => {
-    ensureApiKey();
     try {
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
@@ -40,7 +35,6 @@ export const generateVideo = async (
     prompt: string, 
     startImage?: FileData
 ): Promise<string> => {
-    ensureApiKey();
     try {
         let finalPrompt = prompt;
         let imageForApi: FileData | undefined = startImage;
@@ -73,7 +67,7 @@ export const generateVideo = async (
           throw new Error("Video generation completed, but no download link was found.");
         }
         
-        const videoResponse = await fetch(`${downloadLink}&key=${API_KEY}`);
+        const videoResponse = await fetch(`${downloadLink}&key=${VITE_API_KEY}`);
         if (!videoResponse.ok) {
             throw new Error(`Failed to fetch video file: ${videoResponse.statusText}`);
         }
