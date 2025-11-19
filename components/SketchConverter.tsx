@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FileData, Tool } from '../types';
 import { SketchConverterState } from '../state/toolState';
@@ -10,9 +11,11 @@ import ImageComparator from './ImageComparator';
 interface SketchConverterProps {
     state: SketchConverterState;
     onStateChange: (newState: Partial<SketchConverterState>) => void;
+    userCredits?: number;
+    onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange }) => {
+const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange, userCredits, onDeductCredits }) => {
     const { sourceImage, isLoading, error, resultImage, sketchStyle, detailLevel } = state;
 
     const handleFileSelect = (fileData: FileData | null) => {

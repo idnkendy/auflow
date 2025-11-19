@@ -1,10 +1,14 @@
+
 import React, { useEffect } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
+import * as jobService from '../services/jobService';
+import { refundCredits } from '../services/paymentService';
 import { FileData, Tool } from '../types';
 import { VideoGeneratorState } from '../state/toolState';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
+import { supabase } from '../services/supabaseClient';
 
 const loadingMessages = [
     "Đang khởi tạo các photon ánh sáng...",
@@ -50,9 +54,11 @@ const FilmIcon = () => (
 interface VideoGeneratorProps {
     state: VideoGeneratorState;
     onStateChange: (newState: Partial<VideoGeneratorState>) => void;
+    userCredits?: number;
+    onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange }) => {
+const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { prompt, startImage, isLoading, loadingMessage, error, generatedVideoUrl, mode } = state;
 
     useEffect(() => {
@@ -78,7 +84,14 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange })
         }
     };
 
+    const cost = 50;
+
     const handleGenerate = async () => {
+        if (onDeductCredits && userCredits < cost) {
+             onStateChange({ error: `Bạn không đủ credits. Cần ${cost} credits nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
+             return;
+        }
+
         if (!prompt) {
             onStateChange({ error: 'Vui lòng nhập một mô tả.' });
             return;
@@ -90,9 +103,31 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange })
             loadingMessage: loadingMessages[0] 
         });
 
+        let jobId: string | null = null;
+        let logId: string | null = null;
+
         try {
+            if (onDeductCredits) {
+                logId = await onDeductCredits(cost, "Tạo video AI");
+            }
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user && logId) {
+                 jobId = await jobService.createJob({
+                    user_id: user.id,
+                    tool_id: Tool.VideoGeneration,
+                    prompt: prompt,
+                    cost: cost,
+                    usage_log_id: logId
+                });
+            }
+
+            if (jobId) await jobService.updateJobStatus(jobId, 'processing');
+
             const url = await geminiService.generateVideo(prompt, startImage || undefined);
             onStateChange({ generatedVideoUrl: url });
+
+            if (jobId) await jobService.updateJobStatus(jobId, 'completed', url);
 
             historyService.addToHistory({
                 tool: Tool.VideoGeneration,
@@ -102,7 +137,19 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange })
             });
 
         } catch (err: any) {
-            onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
+            const errorMessage = err.message || 'Đã xảy ra lỗi không mong muốn.';
+            onStateChange({ error: errorMessage });
+
+            if (jobId) {
+                await jobService.updateJobStatus(jobId, 'failed', undefined, errorMessage);
+            }
+
+            // Refund
+             const { data: { user } } = await supabase.auth.getUser();
+             if (user) {
+                await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi tạo video (${errorMessage})`);
+             }
+
         } finally {
             onStateChange({ isLoading: false });
         }
@@ -188,9 +235,24 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange })
                         </div>
                     </div>
 
+                    <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-3 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+                            </svg>
+                            <span>Chi phí: <span className="font-bold text-text-primary dark:text-white">{cost} Credits</span></span>
+                        </div>
+                        <div className="text-xs">
+                            {userCredits < cost ? (
+                                <span className="text-red-500 font-semibold">Không đủ (Có: {userCredits})</span>
+                            ) : (
+                                <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                            )}
+                        </div>
+                    </div>
                     <button
                         onClick={handleGenerate}
-                        disabled={isLoading}
+                        disabled={isLoading || userCredits < cost}
                         className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                     >
                        {isLoading ? <><Spinner /> Đang tạo...</> : 'Tạo Video'}

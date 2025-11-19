@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { UserStatus } from '../types';
+import { User } from '@supabase/supabase-js';
 
 const SunIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -65,9 +66,10 @@ interface HeaderProps {
   onUpgrade?: () => void;
   onOpenProfile?: () => void;
   userStatus?: UserStatus | null;
+  user?: User | null;
 }
 
-const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignOut, onOpenGallery, onUpgrade, onOpenProfile, userStatus }) => {
+const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignOut, onOpenGallery, onUpgrade, onOpenProfile, userStatus, user }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -114,7 +116,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                 <span>
                                     {userStatus.isExpired 
                                         ? 'Hết hạn' 
-                                        : `Hạn: ${new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}`}
+                                        : `Hạn: ${new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
                                 </span>
                             </div>
                         )}
@@ -138,7 +140,19 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                     {isDropdownOpen && (
                         <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50 animate-fade-in">
                             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                                <p className="text-sm font-bold text-text-primary dark:text-white mb-2">Tài khoản của tôi</p>
+                                {user ? (
+                                    <div className="mb-3">
+                                        <p className="text-sm font-bold text-text-primary dark:text-white truncate">
+                                            {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Người dùng'}
+                                        </p>
+                                        <p className="text-xs text-text-secondary dark:text-gray-400 truncate">
+                                            {user.email}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm font-bold text-text-primary dark:text-white mb-2">Tài khoản của tôi</p>
+                                )}
+                                
                                 {/* Credit Display - Internal */}
                                 {userStatus && (
                                     <div className="space-y-2">
@@ -160,7 +174,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                                 {userStatus.isExpired ? (
                                                     <span className="font-bold">Gói tháng đã hết hạn</span>
                                                 ) : (
-                                                    <span>Hết hạn: {new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN')}</span>
+                                                    <span>Hết hạn: {new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                                                 )}
                                             </div>
                                         ) : (

@@ -1,3 +1,4 @@
+
 import React, { useCallback, useState, useMemo, useRef } from 'react';
 import { FileData } from '../../types';
 
@@ -20,6 +21,12 @@ export const fileToBase64 = (file: File): Promise<string> => {
         reader.onerror = error => reject(error);
     });
 };
+
+const XIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+    </svg>
+);
 
 const ImageUpload: React.FC<ImageUploadProps> = ({ onFileSelect, id, previewUrl, maskPreviewUrl, directionPreviewUrl }) => {
     const [error, setError] = useState<string | null>(null);
@@ -57,7 +64,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onFileSelect, id, previewUrl,
         }
     }, [onFileSelect]);
     
-    const handleRemove = () => {
+    const handleRemove = (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
         setError(null);
         if (inputRef.current) {
             inputRef.current.value = '';
@@ -105,15 +113,34 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onFileSelect, id, previewUrl,
                         className="absolute inset-0 w-full h-full object-contain pointer-events-none" 
                     />
                 )}
-                <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 text-center">
-                    <button
-                        onClick={handleRemove}
-                        className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+                
+                {/* Close Button (Top-Right) */}
+                <button
+                    onClick={handleRemove}
+                    className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-600 text-white rounded-full transition-all shadow-sm z-10"
+                    title="Xóa ảnh"
+                >
+                    <XIcon />
+                </button>
+
+                <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 text-center pointer-events-none">
+                     <button
+                        onClick={handleContainerClick}
+                        className="pointer-events-auto bg-white/20 hover:bg-white/30 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2 backdrop-blur-sm"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
                         Thay đổi ảnh
                     </button>
                 </div>
+                 <input
+                    ref={inputRef}
+                    id={uniqueId}
+                    name={uniqueId}
+                    type="file"
+                    className="sr-only"
+                    onChange={handleFileChange}
+                    accept="image/png, image/jpeg, image/webp"
+                />
             </div>
         );
     }

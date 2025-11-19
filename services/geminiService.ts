@@ -2,18 +2,42 @@
 // Fix: Imported GenerateVideosResponse to correctly type the video generation operation.
 import { GoogleGenAI, GenerateContentResponse, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
+import { supabase } from "./supabaseClient";
 
-const VITE_API_KEY = import.meta.env.VITE_API_KEY;
+// Hàm lấy Dynamic API Key từ Supabase (Load Balancing)
+const getAIClient = async (): Promise<{ ai: GoogleGenAI, key: string }> => {
+    try {
+        // Gọi Stored Procedure 'get_worker_key' từ Supabase
+        const { data: apiKey, error } = await supabase.rpc('get_worker_key');
 
-//if (!VITE_API_KEY) {
-//    throw new Error("API_KEY environment variable not set.");
-//}
+        if (error || !apiKey) {
+            console.warn("Supabase key rotation error or exhaustion:", error);
+            // Fallback: Nếu DB lỗi, thử dùng key dự phòng từ env (nếu có)
+            if (process.env.API_KEY) {
+                console.warn("Using fallback env API KEY");
+                return { 
+                    ai: new GoogleGenAI({ apiKey: process.env.API_KEY }),
+                    key: process.env.API_KEY 
+                };
+            }
+            // Throw specific error for retry logic
+            throw new Error("SYSTEM_BUSY");
+        }
 
-const ai = new GoogleGenAI({ apiKey: VITE_API_KEY });
-
+        return { 
+            ai: new GoogleGenAI({ apiKey: apiKey }),
+            key: apiKey
+        };
+    } catch (e: any) {
+        if (e.message === "SYSTEM_BUSY") throw e;
+        console.error("Critical error initializing AI client:", e);
+        throw e;
+    }
+};
 
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1): Promise<string[]> => {
     try {
+        const { ai } = await getAIClient();
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
             prompt: prompt,
@@ -28,7 +52,7 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
 
     } catch (error) {
         console.error("Error generating image:", error);
-        throw new Error("Failed to generate image. Please check the prompt and try again.");
+        throw error; // Re-throw to let component handle retries or failure
     }
 };
 
@@ -37,6 +61,7 @@ export const generateVideo = async (
     startImage?: FileData
 ): Promise<string> => {
     try {
+        const { ai, key } = await getAIClient();
         let finalPrompt = prompt;
         let imageForApi: FileData | undefined = startImage;
 
@@ -68,7 +93,8 @@ export const generateVideo = async (
           throw new Error("Video generation completed, but no download link was found.");
         }
         
-        const videoResponse = await fetch(`${downloadLink}&key=${VITE_API_KEY}`);
+        // Cần dùng key vừa fetch được để tải video về (vì link này yêu cầu auth key tạo ra nó)
+        const videoResponse = await fetch(`${downloadLink}&key=${key}`);
         if (!videoResponse.ok) {
             throw new Error(`Failed to fetch video file: ${videoResponse.statusText}`);
         }
@@ -88,13 +114,13 @@ export const generateVideo = async (
 
     } catch (error) {
         console.error("Error generating video:", error);
-        throw new Error("Failed to generate video. This can take a few minutes. If the problem persists, please try again later.");
+        throw error;
     }
 };
 
 export const generateTextFromImage = async (prompt: string, image: FileData): Promise<string> => {
-    ensureApiKey();
     try {
+        const { ai } = await getAIClient();
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: {
@@ -112,31 +138,31 @@ export const generateTextFromImage = async (prompt: string, image: FileData): Pr
             },
         });
         
-        return response.text;
+        return response.text || "";
     } catch (error) {
         console.error("Error generating text from image:", error);
-        throw new Error("Failed to analyze the image. Please try again.");
+        throw error;
     }
 };
 
 export const generateText = async (prompt: string): Promise<string> => {
-    ensureApiKey();
     try {
+        const { ai } = await getAIClient();
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [{ text: prompt }] },
         });
         
-        return response.text;
+        return response.text || "";
     } catch (error) {
         console.error("Error generating text:", error);
-        throw new Error("Failed to generate text response. Please try again.");
+        throw error;
     }
 };
 
 export const generatePromptSuggestions = async (image: FileData, subject: string, count: number, customInstruction?: string): Promise<Record<string, string[]>> => {
-    ensureApiKey();
     try {
+        const { ai } = await getAIClient();
         let prompt = `Từ ảnh kiến trúc, tạo các prompt tiếng Việt sáng tạo để render ảnh mới.`;
         let responseSchema: any;
 
@@ -198,12 +224,13 @@ export const generatePromptSuggestions = async (image: FileData, subject: string
             }
         });
 
-        const jsonStr = response.text.trim();
+        const jsonStr = response.text?.trim();
+        if (!jsonStr) return {};
         return JSON.parse(jsonStr);
         
     } catch (error) {
         console.error("Error generating prompt suggestions:", error);
-        throw new Error("Không thể tạo gợi ý. Vui lòng thử lại.");
+        throw error;
     }
 };
 
@@ -211,8 +238,8 @@ export const enhancePrompt = async (
     customNeeds: string,
     image?: FileData
 ): Promise<string> => {
-    ensureApiKey();
     try {
+        const { ai } = await getAIClient();
         let prompt = `Bạn là một chuyên gia viết prompt cho AI tạo hình ảnh kiến trúc. Nhiệm vụ của bạn là nhận yêu cầu của người dùng (có thể là từ khóa, mô tả chi tiết, hoặc một hình ảnh) và biến chúng thành một prompt hoàn chỉnh, chuyên nghiệp bằng tiếng Việt.
 
 Yêu cầu đầu vào:
@@ -241,17 +268,17 @@ Nhiệm vụ:
             contents: { parts: parts },
         });
         
-        return response.text.trim();
+        return response.text?.trim() || "";
     } catch (error) {
         console.error("Error enhancing prompt:", error);
-        throw new Error("Không thể tạo prompt. Vui lòng thử lại.");
+        throw error;
     }
 };
 
 
 export const generatePromptFromImageAndText = async (image: FileData, keywords: string): Promise<string> => {
-    ensureApiKey();
     try {
+        const { ai } = await getAIClient();
         const prompt = `Phân tích hình ảnh và từ khóa ("${keywords}"). Trả về DUY NHẤT một chuỗi prompt tiếng Việt chi tiết theo cấu trúc sau, KHÔNG thêm bất kỳ lời dẫn, giải thích hay định dạng nào khác. Cấu trúc: "Biến thành ảnh chụp thực tế, [loại công trình], [phong cách thiết kế], [tone màu], [vật liệu], [các đặc điểm khác của công trình], [cảnh quan xung quanh], [thời gian]". Điền thông tin vào các mục trong ngoặc vuông dựa trên phân tích.`;
         
         const response: GenerateContentResponse = await ai.models.generateContent({
@@ -271,16 +298,16 @@ export const generatePromptFromImageAndText = async (image: FileData, keywords: 
             },
         });
         
-        return response.text;
+        return response.text || "";
     } catch (error) {
         console.error("Error generating prompt from image and text:", error);
-        throw new Error("Không thể tạo prompt tự động. Vui lòng thử lại.");
+        throw error;
     }
 };
 
 export const generateMoodboardPromptFromScene = async (sceneImage: FileData): Promise<string> => {
-    ensureApiKey();
     try {
+        const { ai } = await getAIClient();
         const prompt = `Analyze this image of an interior or exterior scene. Identify the core design style, key materials, and color palette. Summarize these elements into a concise, descriptive prompt suitable for generating a moodboard. For example: "A minimalist interior with light oak wood, soft gray fabrics, and a neutral color palette." or "A tropical brutalist exterior with raw concrete, lush green plants, and black metal accents." Return ONLY the descriptive phrase, in Vietnamese, without any introductory text.`;
         
         const response: GenerateContentResponse = await ai.models.generateContent({
@@ -300,16 +327,17 @@ export const generateMoodboardPromptFromScene = async (sceneImage: FileData): Pr
             },
         });
         
-        return response.text;
+        return response.text || "";
     } catch (error) {
         console.error("Error generating moodboard prompt from scene:", error);
-        throw new Error("Không thể phân tích ảnh để tạo prompt. Vui lòng thử lại.");
+        throw error;
     }
 };
 
 
 const generateEditedImages = async (parts: any[], numberOfImages: number): Promise<{imageUrl: string, text: string}[]> => {
-    ensureApiKey();
+    // Helper function needs to fetch client
+    const { ai } = await getAIClient();
     const generateSingle = async (): Promise<{imageUrl: string, text: string}> => {
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
@@ -332,6 +360,8 @@ const generateEditedImages = async (parts: any[], numberOfImages: number): Promi
         }
         
         if (!imageUrl) {
+            // Sometimes model only returns text if it refuses
+            if (text) console.warn("Model returned text only:", text);
             throw new Error("The model did not return an edited image.");
         }
 
@@ -358,7 +388,7 @@ export const editImage = async (prompt: string, image: FileData, numberOfImages:
         return await generateEditedImages(parts, numberOfImages);
     } catch (error) {
         console.error("Error editing image:", error);
-        throw new Error("Failed to edit image. Please check your prompt and image and try again.");
+        throw error;
     }
 };
 
@@ -384,7 +414,7 @@ export const editImageWithMask = async (prompt: string, baseImage: FileData, mas
         return await generateEditedImages(parts, numberOfImages);
     } catch (error) {
         console.error("Error editing image with mask:", error);
-        throw new Error("Failed to edit image with mask. Please check your prompt and images and try again.");
+        throw error;
     }
 };
 
@@ -410,7 +440,7 @@ export const editImageWithReference = async (prompt: string, baseImage: FileData
        return await generateEditedImages(parts, numberOfImages);
     } catch (error) {
         console.error("Error editing image with reference:", error);
-        throw new Error("Failed to edit image. Please check your prompt and images and try again.");
+        throw error;
     }
 };
 
@@ -436,7 +466,7 @@ export const generateStagingImage = async (prompt: string, sceneImage: FileData,
        return await generateEditedImages(parts, numberOfImages);
     } catch (error) {
         console.error("Error generating staging image:", error);
-        throw new Error("Failed to stage objects. Please check your prompt and images, then try again.");
+        throw error;
     }
 };
 
@@ -468,7 +498,7 @@ export const editImageWithMaskAndReference = async (prompt: string, baseImage: F
        return await generateEditedImages(parts, numberOfImages);
     } catch (error) {
         console.error("Error editing image with mask and reference:", error);
-        throw new Error("Failed to edit image. Please check your prompt and images and try again.");
+        throw error;
     }
 };
 
@@ -494,7 +524,7 @@ export const editImageWithMultipleReferences = async (prompt: string, baseImage:
        return await generateEditedImages(parts, numberOfImages);
     } catch (error) {
         console.error("Error editing image with multiple references:", error);
-        throw new Error("Failed to edit image. Please check your prompt and images and try again.");
+        throw error;
     }
 };
 
@@ -526,6 +556,6 @@ export const editImageWithMaskAndMultipleReferences = async (prompt: string, bas
        return await generateEditedImages(parts, numberOfImages);
     } catch (error) {
         console.error("Error editing image with mask and multiple references:", error);
-        throw new Error("Failed to edit image. Please check your prompt and images and try again.");
+        throw error;
     }
 };

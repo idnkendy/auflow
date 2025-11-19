@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FileData, Tool } from '../types';
 import { ImageEditorState } from '../state/toolState';
@@ -21,9 +22,11 @@ const SparklesIcon = () => (
 interface ImageEditorProps {
     state: ImageEditorState;
     onStateChange: (newState: Partial<ImageEditorState>) => void;
+    userCredits?: number;
+    onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange }) => {
+const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { prompt, sourceImage, maskImage, referenceImages, isLoading, error, resultImages, numberOfImages } = state;
     
     const [isMaskingModalOpen, setIsMaskingModalOpen] = useState<boolean>(false);
@@ -60,7 +63,14 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange }) => {
         }
     };
 
+    const cost = numberOfImages * 10;
+
     const handleGenerate = async () => {
+        if (onDeductCredits && userCredits < cost) {
+             onStateChange({ error: `Bạn không đủ credits. Cần ${cost} credits nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
+             return;
+        }
+
         if (!prompt) {
             onStateChange({ error: 'Vui lòng nhập mô tả yêu cầu chỉnh sửa.' });
             return;
@@ -73,6 +83,10 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange }) => {
         onStateChange({ isLoading: true, error: null, resultImages: [] });
 
         try {
+            if (onDeductCredits) {
+                await onDeductCredits(cost, `Chỉnh sửa ảnh (${numberOfImages} ảnh)`);
+            }
+
             let results;
             if (referenceImages && referenceImages.length > 0) {
                 if (maskImage) {
@@ -112,6 +126,17 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange }) => {
         onStateChange({ maskImage: null });
     };
 
+    const handleDownload = () => {
+        if (resultImages.length !== 1) return;
+        const link = document.createElement('a');
+        link.href = resultImages[0];
+        link.download = "edited-image.png";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+
     return (
         <div>
             {previewImage && <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
@@ -140,7 +165,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange }) => {
                                         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
                                     >
                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>
-                                        {maskImage ? 'Sửa vùng chọn' : 'Vẽ vùng chọn'}
+                                        {maskImage ? 'Sửa vùng chọn' : 'Vẽ vùng chọn (Mask)'}
                                     </button>
                                     {maskImage && (
                                         <button
@@ -152,21 +177,27 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange }) => {
                                         </button>
                                     )}
                                 </div>
-                                {maskImage && <p className="text-xs text-green-500 dark:text-green-400 mt-2">Đã áp dụng vùng chọn.</p>}
+                                {maskImage && <p className="text-xs text-green-500 dark:text-green-400 mt-2">Đã áp dụng vùng chọn. AI sẽ chỉ chỉnh sửa trong vùng này.</p>}
                             </div>
                         )}
                     </div>
-                     <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
-                        <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">2. Tải Ảnh Tham Chiếu Phong Cách (Tùy chọn, tối đa 10)</label>
-                        <MultiImageUpload onFilesChange={handleReferenceFilesChange} maxFiles={10} />
-                    </div>
+                    
                     <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
-                        <label htmlFor="prompt-edit" className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Mô tả yêu cầu chỉnh sửa</label>
-                        <textarea
-                            id="prompt-edit"
-                            rows={3}
-                            className="w-full bg-surface dark:bg-gray-700/50 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:outline-none transition-all"
-                            placeholder="VD: Xóa người đàn ông ở phía bên trái..."
+                        <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">2. Ảnh Tham Chiếu (Tùy chọn)</label>
+                        <MultiImageUpload onFilesChange={handleReferenceFilesChange} maxFiles={3} />
+                        <p className="text-xs text-text-secondary dark:text-gray-500 mt-2">Tải lên tối đa 3 ảnh để AI tham khảo phong cách hoặc chi tiết.</p>
+                    </div>
+                </div>
+
+                {/* --- CONTROLS --- */}
+                 <div className="space-y-6 flex flex-col h-full">
+                     <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700 flex-grow flex flex-col">
+                         <label htmlFor="prompt-editor" className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Mô tả thay đổi mong muốn</label>
+                         <textarea
+                            id="prompt-editor"
+                            rows={6}
+                            className="w-full bg-surface dark:bg-gray-700/50 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:outline-none transition-all flex-grow"
+                            placeholder="VD: Thay đổi màu sơn tường thành màu kem, thêm cây xanh vào góc phòng, làm cho ánh sáng ấm áp hơn..."
                             value={prompt}
                             onChange={(e) => onStateChange({ prompt: e.target.value })}
                         />
@@ -178,27 +209,46 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange }) => {
                             {isGeneratingPrompt ? <Spinner /> : <SparklesIcon />}
                             <span>{isGeneratingPrompt ? 'Đang tạo...' : 'Tạo tự động Prompt'}</span>
                         </button>
-                    </div>
-                    <div className="flex-grow"></div>
+                     </div>
+                     
                      <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
-                        <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                         <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                     </div>
+                    
+                    <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-1 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+                            </svg>
+                            <span>Chi phí: <span className="font-bold text-text-primary dark:text-white">{cost} Credits</span></span>
+                        </div>
+                        <div className="text-xs">
+                            {userCredits < cost ? (
+                                <span className="text-red-500 font-semibold">Không đủ (Có: {userCredits})</span>
+                            ) : (
+                                <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                            )}
+                        </div>
                     </div>
-                    <button
-                        onClick={handleGenerate}
-                        disabled={isLoading || !sourceImage}
-                        className="w-full flex justify-center items-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
-                    >
-                        {isLoading ? <><Spinner /> Đang chỉnh sửa...</> : 'Bắt đầu Chỉnh Sửa'}
-                    </button>
-                    {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
-                </div>
 
-                {/* --- RESULTS --- */}
-                <div>
-                     <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-lg font-semibold text-text-primary dark:text-white">So sánh Trước & Sau</h3>
-                         {resultImages.length === 1 && (
-                            <button
+                     <button
+                        onClick={handleGenerate}
+                        disabled={isLoading || !sourceImage || userCredits < cost}
+                        className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                    >
+                        {isLoading ? <><Spinner /> Đang xử lý...</> : 'Thực Hiện Chỉnh Sửa'}
+                    </button>
+                    {error && <div className="mt-2 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
+                 </div>
+            </div>
+
+            {/* --- RESULTS --- */}
+             <div>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-semibold text-text-primary dark:text-white">Kết Quả</h3>
+                     {resultImages.length === 1 && (
+                         <div className="flex items-center gap-2">
+                             <button
                                 onClick={() => setPreviewImage(resultImages[0])}
                                 className="text-center bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 transition-colors rounded-lg text-sm flex items-center gap-2"
                             >
@@ -207,20 +257,29 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange }) => {
                                 </svg>
                                 Phóng to
                             </button>
-                        )}
-                    </div>
-                    <div className="w-full aspect-video bg-main-bg dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-border-color dark:border-gray-700 flex items-center justify-center overflow-hidden">
-                       {isLoading && <Spinner />}
-                       {!isLoading && resultImages.length === 1 && sourceImage && (
-                            <ImageComparator originalImage={sourceImage.objectURL} resultImage={resultImages[0]} />
-                       )}
-                       {!isLoading && resultImages.length > 1 && (
-                            <ResultGrid images={resultImages} toolName="image-edit" />
-                       )}
-                       {!isLoading && resultImages.length === 0 && (
-                            <p className="text-text-secondary dark:text-gray-400 p-4 text-center">{sourceImage ? 'Kết quả chỉnh sửa sẽ hiển thị ở đây' : 'Tải lên một ảnh để bắt đầu'}</p>
-                       )}
-                    </div>
+                             <button onClick={handleDownload} className="text-center bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 transition-colors rounded-lg text-sm">
+                                Tải xuống
+                            </button>
+                         </div>
+                    )}
+                </div>
+                <div className="w-full aspect-video bg-main-bg dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-border-color dark:border-gray-700 flex items-center justify-center overflow-hidden">
+                    {isLoading && <Spinner />}
+                    
+                    {!isLoading && resultImages.length === 1 && sourceImage && (
+                        <ImageComparator
+                            originalImage={sourceImage.objectURL}
+                            resultImage={resultImages[0]}
+                        />
+                    )}
+                    
+                    {!isLoading && resultImages.length > 1 && (
+                        <ResultGrid images={resultImages} toolName="image-edit" />
+                    )}
+
+                    {!isLoading && resultImages.length === 0 && (
+                         <p className="text-text-secondary dark:text-gray-400 text-center p-4">{sourceImage ? 'Kết quả chỉnh sửa sẽ hiển thị ở đây.' : 'Tải lên ảnh để bắt đầu.'}</p>
+                    )}
                 </div>
             </div>
         </div>

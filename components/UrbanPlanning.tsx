@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -47,9 +48,11 @@ interface UrbanPlanningProps {
   state: UrbanPlanningState;
   onStateChange: (newState: Partial<UrbanPlanningState>) => void;
   onSendToViewSync: (image: FileData) => void;
+  userCredits?: number;
+  onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onSendToViewSync }) => {
+const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onSendToViewSync, userCredits = 0, onDeductCredits }) => {
     const { 
         viewType, density, lighting, customPrompt, referenceImage, 
         sourceImage, isLoading, isUpscaling, error, resultImages, upscaledImage, 
@@ -136,19 +139,30 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
         }
     };
 
+    const cost = numberOfImages * 10;
+
     const handleGenerate = async () => {
+        if (onDeductCredits && userCredits < cost) {
+             onStateChange({ error: `Bạn không đủ credits. Cần ${cost} credits nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
+             return;
+        }
+
         if (!customPrompt.trim()) {
             onStateChange({ error: 'Lời nhắc (prompt) không được để trống.' });
             return;
         }
         onStateChange({ isLoading: true, error: null, resultImages: [], upscaledImage: null });
-    
-        // Logic branching based on sourceImage
-        if (sourceImage) {
-            // Image-to-Image Generation (from a site plan)
-            const promptForService = `Generate a photorealistic urban planning render with a strict aspect ratio of ${aspectRatio}. Develop the provided 2D site plan into a 3D environment. Adapt the composition to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}`;
-            
-            try {
+        
+        try {
+             if (onDeductCredits) {
+                await onDeductCredits(cost, `Render quy hoạch (${numberOfImages} ảnh)`);
+            }
+
+            // Logic branching based on sourceImage
+            if (sourceImage) {
+                // Image-to-Image Generation (from a site plan)
+                const promptForService = `Generate a photorealistic urban planning render with a strict aspect ratio of ${aspectRatio}. Develop the provided 2D site plan into a 3D environment. Adapt the composition to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}`;
+                
                 let results;
                 if (referenceImage) {
                     const promptWithRef = `${promptForService} Also, take aesthetic inspiration (architectural style, materials, atmosphere) from the provided reference image.`;
@@ -168,17 +182,11 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                         resultImageURL: url,
                     });
                 });
-            } catch (err: any) {
-                onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
-            } finally {
-                onStateChange({ isLoading: false });
-            }
-    
-        } else {
-            // Text-to-Image Generation
-            const promptForService = `${customPrompt}, photorealistic urban planning, master plan rendering, high detail, masterpiece`;
-            
-            try {
+        
+            } else {
+                // Text-to-Image Generation
+                const promptForService = `${customPrompt}, photorealistic urban planning, master plan rendering, high detail, masterpiece`;
+                
                 const imageUrls = await geminiService.generateImage(promptForService, aspectRatio, numberOfImages);
                 onStateChange({ resultImages: imageUrls });
                 
@@ -189,11 +197,11 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                         resultImageURL: url,
                     });
                 });
-            } catch (err: any) {
-                onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
-            } finally {
-                onStateChange({ isLoading: false });
             }
+        } catch (err: any) {
+            onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
+        } finally {
+            onStateChange({ isLoading: false });
         }
     };
 
@@ -262,8 +270,8 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
         <div className="flex flex-col gap-8">
             {previewImage && <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
             <div>
-                <h2 className="text-2xl font-bold text-text-primary dark:text-white mb-4">AI Render Quy hoạch</h2>
-                <p className="text-text-secondary dark:text-gray-300 mb-6">Mô tả chi tiết ý tưởng quy hoạch của bạn, hoặc tải lên bản vẽ mặt bằng tổng thể để AI trực quan hóa thành một không gian đô thị sống động.</p>
+                <h2 className="text-2xl font-bold text-text-primary dark:text-white mb-4">AI Render Quy Hoạch Đô Thị</h2>
+                <p className="text-text-secondary dark:text-gray-300 mb-6">Tạo phối cảnh tổng thể cho các dự án quy hoạch, khu đô thị, hoặc cảnh quan lớn từ bản vẽ 2D hoặc mô tả.</p>
                 
                 {/* --- INPUTS --- */}
                 <div className="space-y-6 bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
@@ -271,11 +279,11 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                         {/* Image Uploads (Left Column) */}
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Tải Lên Mặt Bằng Tổng Thể (Tùy chọn)</label>
+                                <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Tải Lên Bản Vẽ/Ảnh Hiện Trạng (Tùy chọn)</label>
                                 <ImageUpload onFileSelect={handleFileSelect} previewUrl={sourceImage?.objectURL}/>
                             </div>
                              <div>
-                                <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Ảnh Tham Chiếu Phong Cách (Tùy chọn)</label>
+                                <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Ảnh Tham Chiếu (Tùy chọn)</label>
                                 <ImageUpload onFileSelect={handleReferenceFileSelect} previewUrl={referenceImage?.objectURL}/>
                             </div>
                         </div>
@@ -283,12 +291,12 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                         {/* Prompt and Options (Right Column) */}
                          <div className="space-y-4 flex flex-col">
                              <div>
-                                <label htmlFor="custom-prompt-urban" className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">2. Mô tả yêu cầu chính</label>
+                                <label htmlFor="custom-prompt-urban" className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">2. Mô tả ý tưởng quy hoạch</label>
                                 <textarea
                                     id="custom-prompt-urban"
                                     rows={4}
                                     className="w-full bg-surface dark:bg-gray-700/50 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:outline-none transition-all"
-                                    placeholder="Mô tả ý tưởng quy hoạch của bạn ở đây..."
+                                    placeholder="Mô tả chi tiết về dự án: mật độ, phong cách, không gian xanh, tiện ích..."
                                     value={customPrompt}
                                     onChange={(e) => onStateChange({ customPrompt: e.target.value })}
                                     disabled={isLoading}
@@ -296,7 +304,7 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                                 <button
                                     onClick={handleAutoPrompt}
                                     disabled={!sourceImage || isLoading || isUpscaling || isGeneratingPrompt}
-                                    className="mt-2 w-full flex items-center justify-center gap-2 bg-accent-700 hover:bg-accent-800 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
+                                    className="mt-2 w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
                                 >
                                     {isGeneratingPrompt ? <Spinner /> : <SparklesIcon />}
                                     <span>{isGeneratingPrompt ? 'Đang tạo...' : 'Tạo tự động Prompt'}</span>
@@ -306,26 +314,43 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                             <div className="pt-2">
                                 <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Tinh chỉnh tùy chọn</label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <OptionSelector id="view-type-selector" label="Loại phối cảnh" options={viewTypeOptions} value={viewType} onChange={handleViewTypeChange} disabled={isLoading} />
-                                    <OptionSelector id="density-selector" label="Mật độ đô thị" options={densityOptions} value={density} onChange={handleDensityChange} disabled={isLoading} />
-                                    <OptionSelector id="lighting-selector" label="Ánh sáng" options={lightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} />
+                                    <OptionSelector id="view-type-selector" label="Góc nhìn" options={viewTypeOptions} value={viewType} onChange={handleViewTypeChange} disabled={isLoading} />
+                                    <OptionSelector id="density-selector" label="Mật độ xây dựng" options={densityOptions} value={density} onChange={handleDensityChange} disabled={isLoading} />
+                                    <OptionSelector id="lighting-selector-urban" label="Ánh sáng & Thời gian" options={lightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} />
                                 </div>
                             </div>
                             
                             <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                               <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({numberOfImages: val})} disabled={isLoading || isUpscaling} />
-                               <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({aspectRatio: val})} disabled={isLoading || isUpscaling} />
+                               <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading || isUpscaling} />
+                               <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading || isUpscaling} />
                             </div>
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleGenerate}
-                        disabled={isLoading || !customPrompt.trim() || isUpscaling}
-                        className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors mt-4"
-                    >
-                       {isLoading ? <><Spinner /> Đang Render...</> : 'Bắt đầu Render'}
-                    </button>
+                    <div className="mt-4">
+                         <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-3 border border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+                                </svg>
+                                <span>Chi phí: <span className="font-bold text-text-primary dark:text-white">{cost} Credits</span></span>
+                            </div>
+                            <div className="text-xs">
+                                {userCredits < cost ? (
+                                    <span className="text-red-500 font-semibold">Không đủ (Có: {userCredits})</span>
+                                ) : (
+                                    <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                                )}
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleGenerate}
+                            disabled={isLoading || !customPrompt.trim() || isUpscaling || userCredits < cost}
+                            className="w-full flex justify-center items-center gap-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                        >
+                           {isLoading ? <><Spinner /> Đang Render...</> : 'Bắt đầu Render'}
+                        </button>
+                    </div>
                     {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
                 </div>
             </div>
@@ -359,7 +384,7 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                                     title="Chuyển ảnh này tới Đồng Bộ View để xử lý tiếp"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z" />
                                     </svg>
                                     Đồng bộ
                                 </button>
@@ -391,7 +416,7 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                         <img src={resultImages[0]} alt="Generated Result" className="w-full h-full object-contain" />
                     )}
                      {!isLoading && resultImages.length > 1 && (
-                        <ResultGrid images={resultImages} toolName="urban-plan-render" onSendToViewSync={handleSendImageToSync} />
+                        <ResultGrid images={resultImages} toolName="urban-render" onSendToViewSync={handleSendImageToSync} />
                     )}
                     {!isLoading && resultImages.length === 0 && (
                         <p className="text-text-secondary dark:text-gray-400 p-4 text-center">{sourceImage ? 'Kết quả render sẽ hiển thị ở đây' : 'Nhập mô tả hoặc tải ảnh lên để bắt đầu'}</p>

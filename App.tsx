@@ -31,7 +31,7 @@ import { initialToolStates, ToolStates } from './state/toolState';
 import Homepage from './components/Homepage';
 import AuthPage from './components/auth/AuthPage';
 import Spinner from './components/Spinner';
-import { getUserStatus } from './services/paymentService';
+import { getUserStatus, deductCredits } from './services/paymentService';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'homepage' | 'auth' | 'app'>('homepage');
@@ -95,6 +95,13 @@ const App: React.FC = () => {
   useEffect(() => {
     fetchUserStatus();
   }, [fetchUserStatus, activeTool]); 
+  
+  const handleDeductCredits = async (amount: number, description?: string): Promise<string> => {
+      if (!session?.user) throw new Error("Vui lòng đăng nhập để sử dụng.");
+      const logId = await deductCredits(session.user.id, amount, description);
+      await fetchUserStatus(); // Refresh UI
+      return logId;
+  };
 
   const handleThemeToggle = () => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
@@ -185,6 +192,8 @@ const App: React.FC = () => {
      });
     setActiveTool(Tool.ViewSync);
   };
+  
+  const userCredits = userStatus?.credits || 0;
 
   const renderTool = () => {
     switch (activeTool) {
@@ -192,45 +201,61 @@ const App: React.FC = () => {
         return <FloorPlan 
             state={toolStates.FloorPlan}
             onStateChange={(newState) => handleToolStateChange(Tool.FloorPlan, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.Renovation:
         return <Renovation 
             state={toolStates.Renovation}
             onStateChange={(newState) => handleToolStateChange(Tool.Renovation, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.ArchitecturalRendering:
         return <ImageGenerator 
             state={toolStates.ArchitecturalRendering}
             onStateChange={(newState) => handleToolStateChange(Tool.ArchitecturalRendering, newState)}
             onSendToViewSync={handleSendToViewSync} 
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.InteriorRendering:
         return <InteriorGenerator
             state={toolStates.InteriorRendering}
             onStateChange={(newState) => handleToolStateChange(Tool.InteriorRendering, newState)}
             onSendToViewSync={handleSendToViewSync} 
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.UrbanPlanning:
         return <UrbanPlanning
             state={toolStates.UrbanPlanning}
             onStateChange={(newState) => handleToolStateChange(Tool.UrbanPlanning, newState)}
             onSendToViewSync={handleSendToViewSync}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.LandscapeRendering:
         return <LandscapeRendering
             state={toolStates.LandscapeRendering}
             onStateChange={(newState) => handleToolStateChange(Tool.LandscapeRendering, newState)}
             onSendToViewSync={handleSendToViewSync}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.AITechnicalDrawings:
         return <AITechnicalDrawings
             state={toolStates.AITechnicalDrawings}
             onStateChange={(newState) => handleToolStateChange(Tool.AITechnicalDrawings, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.SketchConverter:
         return <SketchConverter
             state={toolStates.SketchConverter}
             onStateChange={(newState) => handleToolStateChange(Tool.SketchConverter, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.LuBanRuler:
         return <LuBanRuler
@@ -241,16 +266,22 @@ const App: React.FC = () => {
         return <FengShui
             state={toolStates.FengShui}
             onStateChange={(newState) => handleToolStateChange(Tool.FengShui, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.ViewSync:
         return <ViewSync 
             state={toolStates.ViewSync}
             onStateChange={(newState) => handleToolStateChange(Tool.ViewSync, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.VirtualTour:
         return <VirtualTour
             state={toolStates.VirtualTour}
             onStateChange={(newState) => handleToolStateChange(Tool.VirtualTour, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.PromptSuggester:
         return <PromptSuggester
@@ -267,31 +298,43 @@ const App: React.FC = () => {
         return <MaterialSwapper 
             state={toolStates.MaterialSwap}
             onStateChange={(newState) => handleToolStateChange(Tool.MaterialSwap, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.Staging:
         return <Staging 
             state={toolStates.Staging}
             onStateChange={(newState) => handleToolStateChange(Tool.Staging, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.Upscale:
         return <Upscale 
             state={toolStates.Upscale}
             onStateChange={(newState) => handleToolStateChange(Tool.Upscale, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.Moodboard:
         return <MoodboardGenerator 
             state={toolStates.Moodboard}
             onStateChange={(newState) => handleToolStateChange(Tool.Moodboard, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.VideoGeneration:
         return <VideoGenerator 
             state={toolStates.VideoGeneration}
             onStateChange={(newState) => handleToolStateChange(Tool.VideoGeneration, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.ImageEditing:
         return <ImageEditor 
             state={toolStates.ImageEditing}
             onStateChange={(newState) => handleToolStateChange(Tool.ImageEditing, newState)}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
       case Tool.History:
         return <HistoryPanel />;
@@ -308,7 +351,9 @@ const App: React.FC = () => {
         return <ImageGenerator 
             state={toolStates.ArchitecturalRendering}
             onStateChange={(newState) => handleToolStateChange(Tool.ArchitecturalRendering, newState)}
-            onSendToViewSync={handleSendToViewSync} 
+            onSendToViewSync={handleSendToViewSync}
+            userCredits={userCredits}
+            onDeductCredits={handleDeductCredits}
         />;
     }
   };
@@ -345,6 +390,7 @@ const App: React.FC = () => {
                 onUpgrade={handleUpgrade} 
                 onOpenProfile={handleOpenProfile} 
                 userStatus={userStatus}
+                user={session.user}
             />
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row gap-6 flex-grow">
                 <Navigation activeTool={activeTool} setActiveTool={setActiveTool} />

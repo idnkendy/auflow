@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import * as historyService from '../services/historyService';
 import { HistoryItem, Tool } from '../types';
@@ -27,6 +28,7 @@ const HistoryPanel: React.FC = () => {
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
     useEffect(() => {
         const loadHistory = async () => {
@@ -35,7 +37,7 @@ const HistoryPanel: React.FC = () => {
                 const items = await historyService.getHistory();
                 setHistory(items);
             } catch (error) {
-                console.error("Failed to load history from DB", error);
+                console.error("Failed to load history from Supabase", error);
             } finally {
                 setIsLoading(false);
             }
@@ -45,27 +47,63 @@ const HistoryPanel: React.FC = () => {
 
     const handleClearHistory = async () => {
         if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử không? Hành động này không thể hoàn tác.')) {
-            await historyService.clearHistory();
-            setHistory([]);
+            setIsLoading(true);
+            try {
+                await historyService.clearHistory();
+                setHistory([]);
+            } catch (error) {
+                alert("Có lỗi xảy ra khi xóa lịch sử.");
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 
     const handleDeleteItem = async (id: string, e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent modal from opening
+        // Critical: Stop propagation to prevent modal from opening
+        e.stopPropagation();
+        e.preventDefault(); 
+
         if (window.confirm('Bạn có chắc chắn muốn xóa mục này không?')) {
-            await historyService.deleteHistoryItem(id);
-            setHistory(prev => prev.filter(item => item.id !== id));
+            setIsDeletingId(id);
+            try {
+                await historyService.deleteHistoryItem(id);
+                setHistory(prev => prev.filter(item => item.id !== id));
+            } catch (error: any) {
+                console.error("Delete error:", error);
+                alert(`Không thể xóa mục này: ${error.message || "Lỗi không xác định"}`);
+            } finally {
+                setIsDeletingId(null);
+            }
         }
     };
     
+    const handleModalDelete = async () => {
+        if (!selectedItem) return;
+        if (window.confirm('Bạn có chắc chắn muốn xóa mục này không?')) {
+            setIsDeletingId(selectedItem.id);
+            try {
+                await historyService.deleteHistoryItem(selectedItem.id);
+                setHistory(prev => prev.filter(item => item.id !== selectedItem.id));
+                setSelectedItem(null);
+            } catch (error: any) {
+                 console.error("Delete error:", error);
+                 alert(`Không thể xóa mục này: ${error.message || "Lỗi không xác định"}`);
+            } finally {
+                setIsDeletingId(null);
+            }
+        }
+    };
+
     const renderModal = () => {
         if (!selectedItem) return null;
 
         const handleDownload = () => {
             if (!selectedItem) return;
-            const isVideo = !!selectedItem.resultVideoURL;
-            const url = selectedItem.resultVideoURL || selectedItem.resultImageURL;
+            const url = selectedItem.media_url || selectedItem.resultImageURL || selectedItem.resultVideoURL;
             if (!url) return;
+            
+            const isVideo = selectedItem.media_type === 'video' || !!selectedItem.resultVideoURL;
 
             const link = document.createElement('a');
             link.href = url;
@@ -77,6 +115,14 @@ const HistoryPanel: React.FC = () => {
             document.body.removeChild(link);
         };
         
+        // Backwards compatibility for display
+        const displayUrl = selectedItem.media_url || selectedItem.resultImageURL || selectedItem.resultVideoURL;
+        const sourceUrl = selectedItem.source_url || selectedItem.sourceImageURL;
+        const isVideo = selectedItem.media_type === 'video' || !!selectedItem.resultVideoURL;
+        const dateString = selectedItem.created_at 
+            ? new Date(selectedItem.created_at).toLocaleString() 
+            : (selectedItem.timestamp ? new Date(selectedItem.timestamp).toLocaleString() : '');
+
         return (
             <div 
                 className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
@@ -88,17 +134,17 @@ const HistoryPanel: React.FC = () => {
                 >
                     <div className="flex-1">
                         <h3 className="text-xl font-bold text-text-primary dark:text-white mb-2">Kết Quả</h3>
-                        {selectedItem.resultVideoURL ? (
-                            <video controls autoPlay src={selectedItem.resultVideoURL} className="w-full rounded-lg bg-black" />
+                        {isVideo ? (
+                            <video controls autoPlay src={displayUrl} className="w-full rounded-lg bg-black" />
                         ) : (
-                            selectedItem.resultImageURL && <img src={selectedItem.resultImageURL} alt="Kết quả đã tạo" className="w-full rounded-lg" />
+                            displayUrl && <img src={displayUrl} alt="Kết quả đã tạo" className="w-full rounded-lg" />
                         )}
                     </div>
                     <div className="flex-1 space-y-4">
-                         {selectedItem.sourceImageURL && (
+                         {sourceUrl && (
                              <div>
                                 <h3 className="text-xl font-bold text-text-primary dark:text-white mb-2">Ảnh Gốc</h3>
-                                <img src={selectedItem.sourceImageURL} alt="Ảnh gốc" className="w-full rounded-lg" />
+                                <img src={sourceUrl} alt="Ảnh gốc" className="w-full rounded-lg" />
                             </div>
                          )}
                         <div>
@@ -111,12 +157,19 @@ const HistoryPanel: React.FC = () => {
                         </div>
                          <div>
                             <h3 className="text-lg font-semibold text-text-secondary dark:text-gray-300">Thời gian</h3>
-                            <p className="text-text-primary dark:text-gray-100">{new Date(selectedItem.timestamp).toLocaleString()}</p>
+                            <p className="text-text-primary dark:text-gray-100">{dateString}</p>
                         </div>
-                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <button
+                                onClick={handleModalDelete}
+                                disabled={isDeletingId === selectedItem.id}
+                                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-bold py-2 px-4 rounded-lg transition-colors flex justify-center"
+                            >
+                                {isDeletingId === selectedItem.id ? <Spinner /> : 'Xóa'}
+                            </button>
                             <button
                                 onClick={() => setSelectedItem(null)}
-                                className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+                                className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"
                             >
                                 Đóng
                             </button>
@@ -139,7 +192,7 @@ const HistoryPanel: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                 <div>
                     <h2 className="text-2xl font-bold text-text-primary dark:text-white">Lịch sử ảnh đã tạo</h2>
-                    <p className="text-text-secondary dark:text-gray-300">Xem lại các tác phẩm bạn đã tạo. Lịch sử được lưu trên trình duyệt của bạn.</p>
+                    <p className="text-text-secondary dark:text-gray-300">Xem lại các tác phẩm bạn đã tạo. Dữ liệu được lưu trữ trên đám mây.</p>
                 </div>
                 {history.length > 0 && !isLoading && (
                     <button
@@ -159,7 +212,7 @@ const HistoryPanel: React.FC = () => {
                     <div className="flex justify-center items-center">
                         <Spinner />
                     </div>
-                    <p className="mt-4 text-sm text-text-secondary dark:text-gray-300">Đang tải lịch sử...</p>
+                    <p className="mt-4 text-sm text-text-secondary dark:text-gray-300">Đang tải lịch sử từ hệ thống...</p>
                 </div>
             ) : history.length === 0 ? (
                 <div className="text-center py-16 bg-main-bg dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-border-color dark:border-gray-700">
@@ -171,42 +224,64 @@ const HistoryPanel: React.FC = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {history.map(item => (
-                        <div key={item.id} className="group relative aspect-square bg-main-bg dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer shadow-lg border border-border-color/50 dark:border-gray-700/50" onClick={() => setSelectedItem(item)}>
-                            {item.resultVideoURL ? (
-                                <>
-                                    <video 
-                                        src={item.resultVideoURL} 
-                                        className="w-full h-full object-cover transition-transform group-hover:scale-105" 
-                                        muted 
-                                        autoPlay 
-                                        loop 
-                                        playsInline
-                                    />
-                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-none">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white/70" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                        </svg>
-                                    </div>
-                                </>
-                            ) : (
-                                item.resultImageURL && <img src={item.resultImageURL} alt={item.prompt} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                            )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-3 flex flex-col justify-end">
-                                <h4 className="font-bold text-white text-sm truncate">{toolDisplayNames[item.tool] || item.tool}</h4>
-                                <p className="text-xs text-gray-300">{new Date(item.timestamp).toLocaleDateString()}</p>
-                            </div>
-                            <button
-                                onClick={(e) => handleDeleteItem(item.id, e)}
-                                className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-all"
-                                title="Xóa mục này"
+                    {history.map(item => {
+                         const displayUrl = item.media_url || item.resultImageURL || item.resultVideoURL;
+                         const isVideo = item.media_type === 'video' || !!item.resultVideoURL;
+                         const dateString = item.created_at 
+                            ? new Date(item.created_at).toLocaleDateString()
+                            : (item.timestamp ? new Date(item.timestamp).toLocaleDateString() : '');
+                         
+                         const isDeleting = isDeletingId === item.id;
+
+                         return (
+                            <div 
+                                key={item.id} 
+                                className="group relative aspect-square bg-main-bg dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer shadow-lg border border-border-color/50 dark:border-gray-700/50 hover:border-accent dark:hover:border-accent transition-all" 
+                                onClick={() => setSelectedItem(item)}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-                    ))}
+                                {isVideo ? (
+                                    <>
+                                        <video 
+                                            src={displayUrl} 
+                                            className="w-full h-full object-cover transition-transform group-hover:scale-105" 
+                                            muted 
+                                            autoPlay 
+                                            loop 
+                                            playsInline
+                                        />
+                                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white/70" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                    </>
+                                ) : (
+                                    displayUrl && <img src={displayUrl} alt={item.prompt} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                )}
+                                
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-3 flex flex-col justify-end pointer-events-none">
+                                    <h4 className="font-bold text-white text-sm truncate">{toolDisplayNames[item.tool] || item.tool}</h4>
+                                    <p className="text-xs text-gray-300">{dateString}</p>
+                                </div>
+
+                                {isDeleting ? (
+                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+                                        <Spinner />
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={(e) => handleDeleteItem(item.id, e)}
+                                        className="absolute top-2 right-2 p-2 bg-black/40 hover:bg-red-600 rounded-full text-white opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 backdrop-blur-sm shadow-md"
+                                        title="Xóa mục này"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>

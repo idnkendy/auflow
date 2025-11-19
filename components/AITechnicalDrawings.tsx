@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FileData, Tool } from '../types';
 import { AITechnicalDrawingsState } from '../state/toolState';
@@ -10,9 +11,11 @@ import ImageComparator from './ImageComparator';
 interface AITechnicalDrawingsProps {
     state: AITechnicalDrawingsState;
     onStateChange: (newState: Partial<AITechnicalDrawingsState>) => void;
+    userCredits?: number;
+    onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStateChange }) => {
+const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStateChange, userCredits, onDeductCredits }) => {
     const { sourceImage, isLoading, error, resultImage, drawingType, detailLevel } = state;
 
     const handleFileSelect = (fileData: FileData | null) => {

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -51,9 +52,11 @@ interface LandscapeRenderingProps {
   state: LandscapeRenderingState;
   onStateChange: (newState: Partial<LandscapeRenderingState>) => void;
   onSendToViewSync: (image: FileData) => void;
+  userCredits?: number;
+  onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateChange, onSendToViewSync }) => {
+const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateChange, onSendToViewSync, userCredits, onDeductCredits }) => {
     const { 
         gardenStyle, timeOfDay, features, customPrompt, referenceImage, 
         sourceImage, isLoading, isUpscaling, error, resultImages, upscaledImage, 
@@ -140,18 +143,30 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
         }
     };
 
+    const cost = numberOfImages * 10;
+
     const handleGenerate = async () => {
+        if (onDeductCredits && userCredits < cost) {
+             onStateChange({ error: `Bạn không đủ credits. Cần ${cost} credits nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
+             return;
+        }
+
         if (!customPrompt.trim()) {
             onStateChange({ error: 'Lời nhắc (prompt) không được để trống.' });
             return;
         }
         onStateChange({ isLoading: true, error: null, resultImages: [], upscaledImage: null });
+        
+        try {
+            // Deduct credits
+            if (onDeductCredits) {
+                await onDeductCredits(cost, `Render sân vườn (${numberOfImages} ảnh)`);
+            }
     
-        if (sourceImage) {
-            // Image-to-Image Generation (from a sketch or photo)
-            const promptForService = `Generate a photorealistic landscape/garden rendering with a strict aspect ratio of ${aspectRatio}. Develop the provided sketch/photo into a complete 3D scene. Adapt the composition to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}`;
-            
-            try {
+            if (sourceImage) {
+                // Image-to-Image Generation (from a sketch or photo)
+                const promptForService = `Generate a photorealistic landscape/garden rendering with a strict aspect ratio of ${aspectRatio}. Develop the provided sketch/photo into a complete 3D scene. Adapt the composition to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}`;
+                
                 let results;
                 if (referenceImage) {
                     const promptWithRef = `${promptForService} Also, take aesthetic inspiration (planting style, materials, atmosphere) from the provided reference image.`;
@@ -171,16 +186,10 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
                         resultImageURL: url,
                     });
                 });
-            } catch (err: any) {
-                onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
-            } finally {
-                onStateChange({ isLoading: false });
-            }
-        } else {
-            // Text-to-Image Generation
-            const promptForService = `${customPrompt}, photorealistic landscape rendering, detailed garden design, high detail, masterpiece`;
-            
-            try {
+            } else {
+                // Text-to-Image Generation
+                const promptForService = `${customPrompt}, photorealistic landscape rendering, detailed garden design, high detail, masterpiece`;
+                
                 const imageUrls = await geminiService.generateImage(promptForService, aspectRatio, numberOfImages);
                 onStateChange({ resultImages: imageUrls });
                 
@@ -191,11 +200,11 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
                         resultImageURL: url,
                     });
                 });
-            } catch (err: any) {
-                onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
-            } finally {
-                onStateChange({ isLoading: false });
             }
+        } catch (err: any) {
+            onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
+        } finally {
+            onStateChange({ isLoading: false });
         }
     };
 
@@ -307,13 +316,30 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleGenerate}
-                        disabled={isLoading || !customPrompt.trim() || isUpscaling}
-                        className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors mt-4"
-                    >
-                       {isLoading ? <><Spinner /> Đang Render...</> : 'Bắt đầu Render'}
-                    </button>
+                    <div className="mt-4">
+                         <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-3 border border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+                                </svg>
+                                <span>Chi phí: <span className="font-bold text-text-primary dark:text-white">{cost} Credits</span></span>
+                            </div>
+                            <div className="text-xs">
+                                {userCredits < cost ? (
+                                    <span className="text-red-500 font-semibold">Không đủ (Có: {userCredits})</span>
+                                ) : (
+                                    <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                                )}
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleGenerate}
+                            disabled={isLoading || !customPrompt.trim() || isUpscaling || userCredits < cost}
+                            className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                        >
+                           {isLoading ? <><Spinner /> Đang Render...</> : 'Bắt đầu Render'}
+                        </button>
+                    </div>
                     {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
                 </div>
             </div>
@@ -347,7 +373,7 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
                                     title="Chuyển ảnh này tới Đồng Bộ View để xử lý tiếp"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z" />
                                     </svg>
                                     Đồng bộ
                                 </button>

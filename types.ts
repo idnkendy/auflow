@@ -32,14 +32,21 @@ export interface FileData {
   objectURL: string;
 }
 
+// Updated to match Supabase 'generated_assets' table structure
 export interface HistoryItem {
   id: string;
+  user_id: string;
   tool: Tool;
   prompt: string;
-  sourceImageURL?: string;
+  media_url: string;      // URL to the result in Supabase Storage
+  source_url?: string;    // URL to the source image (if uploaded)
+  media_type: 'image' | 'video';
+  created_at: string;
+  // Legacy properties for compatibility mapping (optional)
   resultImageURL?: string;
   resultVideoURL?: string;
-  timestamp: number;
+  sourceImageURL?: string;
+  timestamp?: number;
 }
 
 export interface PricingPlan {
@@ -61,12 +68,35 @@ export interface Transaction {
   plan_name: string;
   amount: number;
   currency: string;
-  type: 'subscription' | 'credit';
+  type: 'subscription' | 'credit' | 'usage';
   credits_added: number;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
   payment_method: string;
   transaction_code: string;
   created_at: string;
+}
+
+export interface UsageLog {
+  id: string;
+  user_id: string;
+  credits_used: number;
+  description: string;
+  tool_id?: string;
+  created_at: string;
+}
+
+export interface GenerationJob {
+  id: string;
+  user_id: string;
+  tool_id: string;
+  prompt: string;
+  cost: number;
+  usage_log_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  result_url?: string;
+  error_message?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface UserStatus {

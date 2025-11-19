@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FileData, Tool, AspectRatio } from '../types';
 import { RenovationState } from '../state/toolState';
@@ -31,9 +32,11 @@ const SparklesIcon = () => (
 interface RenovationProps {
     state: RenovationState;
     onStateChange: (newState: Partial<RenovationState>) => void;
+    userCredits?: number;
+    onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const Renovation: React.FC<RenovationProps> = ({ state, onStateChange }) => {
+const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { prompt, sourceImage, referenceImage, maskImage, isLoading, error, renovatedImages, numberOfImages, aspectRatio } = state;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isMaskingModalOpen, setIsMaskingModalOpen] = useState<boolean>(false);
@@ -56,7 +59,14 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange }) => {
         }
     };
 
+    const cost = numberOfImages * 10;
+
     const handleGenerate = async () => {
+        if (onDeductCredits && userCredits < cost) {
+             onStateChange({ error: `Bạn không đủ credits. Cần ${cost} credits nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
+             return;
+        }
+
         if (!prompt) {
             onStateChange({ error: 'Vui lòng nhập mô tả phương án cải tạo.' });
             return;
@@ -68,6 +78,11 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange }) => {
         onStateChange({ isLoading: true, error: null, renovatedImages: [] });
 
         try {
+            // Deduct credits
+            if (onDeductCredits) {
+                await onDeductCredits(cost, `Cải tạo thiết kế (${numberOfImages} ảnh)`);
+            }
+
             let results;
             let finalPrompt = `Generate an image with a strict aspect ratio of ${aspectRatio}. Adapt the composition from the source image to fit this new frame while performing the renovation. Do not add black bars or letterbox. The renovation instruction is: ${prompt}`;
 
@@ -235,10 +250,26 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange }) => {
                                 <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
                                 <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading} />
                              </div>
+
+                             <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mt-4 mb-2 border border-gray-200 dark:border-gray-700">
+                                <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>Chi phí: <span className="font-bold text-text-primary dark:text-white">{cost} Credits</span></span>
+                                </div>
+                                <div className="text-xs">
+                                    {userCredits < cost ? (
+                                        <span className="text-red-500 font-semibold">Không đủ (Có: {userCredits})</span>
+                                    ) : (
+                                        <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                                    )}
+                                </div>
+                            </div>
                             <button
                                 onClick={handleGenerate}
-                                disabled={isLoading || !sourceImage}
-                                className="w-full flex justify-center items-center gap-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors mt-4"
+                                disabled={isLoading || !sourceImage || userCredits < cost}
+                                className="w-full flex justify-center items-center gap-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                             >
                                 {isLoading ? <><Spinner /> Đang lên phương án...</> : 'Bắt đầu Cải Tạo'}
                             </button>

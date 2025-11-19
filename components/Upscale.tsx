@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FileData, Tool } from '../types';
 import { UpscaleState } from '../state/toolState';
@@ -13,9 +14,11 @@ import ImagePreviewModal from './common/ImagePreviewModal';
 interface UpscaleProps {
     state: UpscaleState;
     onStateChange: (newState: Partial<UpscaleState>) => void;
+    userCredits?: number;
+    onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange }) => {
+const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits, onDeductCredits }) => {
     const { sourceImage, isLoading, error, upscaledImages, numberOfImages } = state;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const upscalePrompt = "Upscale this image to a high resolution. Enhance the details, textures, and lighting to make it look photorealistic and professional. Do not change the composition or the core design.";

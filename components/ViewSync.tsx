@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -58,9 +59,11 @@ const interiorViewAngles = [
 interface ViewSyncProps {
     state: ViewSyncState;
     onStateChange: (newState: Partial<ViewSyncState>) => void;
+    userCredits?: number;
+    onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange }) => {
+const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const {
         sourceImage, directionImage, isLoading, error, resultImages, numberOfImages, sceneType,
         aspectRatio, customPrompt, selectedPerspective, selectedAtmosphere,
@@ -78,7 +81,14 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange }) => {
         setIsDirectionModalOpen(false);
     };
 
+    const cost = numberOfImages * 10;
+
     const handleGenerate = async () => {
+        if (onDeductCredits && userCredits < cost) {
+             onStateChange({ error: `Bạn không đủ credits. Cần ${cost} credits nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
+             return;
+        }
+
         if (!sourceImage) {
             onStateChange({ error: 'Vui lòng tải lên một ảnh gốc để bắt đầu.' });
             return;
@@ -104,6 +114,11 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange }) => {
         let promptWithAspectRatio = `${combinedPrompt} The final generated image must strictly have a ${aspectRatio} aspect ratio. Adapt the view to fit this frame naturally; do not add black bars or letterbox.`;
 
         try {
+            // Deduct credits
+            if (onDeductCredits) {
+                await onDeductCredits(cost, `Đồng bộ view (${numberOfImages} ảnh)`);
+            }
+
             let results;
             if (directionImage) {
                 const promptWithDirection = `Generate a photorealistic image based on the provided source architectural image. The second image provided contains an arrow indicating the desired new camera direction. Generate the scene from this new perspective, ignoring any other perspective instructions and using the arrow as the primary guide. ${promptWithAspectRatio}`;
@@ -184,7 +199,23 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange }) => {
                         <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
                         <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading} />
                     </div>
-                    <button onClick={handleGenerate} disabled={isLoading || !sourceImage} className="w-full flex justify-center items-center gap-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
+
+                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mt-2 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+                            </svg>
+                            <span>Chi phí: <span className="font-bold text-text-primary dark:text-white">{cost} Credits</span></span>
+                        </div>
+                        <div className="text-xs">
+                            {userCredits < cost ? (
+                                <span className="text-red-500 font-semibold">Không đủ (Có: {userCredits})</span>
+                            ) : (
+                                <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                            )}
+                        </div>
+                    </div>
+                    <button onClick={handleGenerate} disabled={isLoading || !sourceImage || userCredits < cost} className="w-full flex justify-center items-center gap-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
                         {isLoading ? <><Spinner /> Đang xử lý...</> : 'Tạo Góc Nhìn'}
                     </button>
                     {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -21,9 +22,11 @@ const ResetIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w
 interface VirtualTourProps {
     state: VirtualTourState;
     onStateChange: (newState: Partial<VirtualTourState>) => void;
+    userCredits?: number;
+    onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
-const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange }) => {
+const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCredits, onDeductCredits }) => {
     const { sourceImage, currentTourImage, isLoading, error, tourStepSize, tourHistory } = state;
 
     const handleTourFileSelect = (fileData: FileData | null) => {

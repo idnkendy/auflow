@@ -1,3 +1,4 @@
+
 import React, { useCallback, useState, useRef } from 'react';
 import { FileData } from '../../types';
 import { fileToBase64 } from './ImageUpload';
@@ -13,12 +14,11 @@ const PlusIcon = () => (
     </svg>
 );
 
-const TrashIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+const XIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
     </svg>
 );
-
 
 const MultiImageUpload: React.FC<MultiImageUploadProps> = ({ onFilesChange, maxFiles = 12 }) => {
     const [files, setFiles] = useState<FileData[]>([]);
@@ -97,15 +97,13 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({ onFilesChange, maxF
                 {files.map(file => (
                     <div key={file.objectURL} className="relative group aspect-square bg-main-bg dark:bg-gray-800 rounded-md overflow-hidden border border-border-color dark:border-gray-700">
                         <img src={file.objectURL} alt="Preview" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button
-                                onClick={() => handleRemove(file.objectURL)}
-                                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors"
-                                title="Xóa ảnh"
-                            >
-                                <TrashIcon />
-                            </button>
-                        </div>
+                        <button
+                            onClick={() => handleRemove(file.objectURL)}
+                            className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-red-600 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                            title="Xóa ảnh"
+                        >
+                            <XIcon />
+                        </button>
                     </div>
                 ))}
                 {files.length < maxFiles && (
