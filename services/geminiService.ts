@@ -5,19 +5,25 @@ import { supabase } from "./supabaseClient";
 import { updateJobApiKey } from "./jobService";
 
 // --- HELPER: Parse Error Object Robustly ---
-// Fixes issue where Vercel/Production returns different error structures
-// e.g. { error: { code: 400, message: "..." } } vs { status: 400, message: "..." }
 const getErrorDetails = (error: any) => {
     let status = error.status || error.response?.status;
     let message = error.message || '';
 
-    // Handle nested Google API error structure
     if (error.error) {
         if (error.error.code) status = error.error.code;
         if (error.error.message) message = error.error.message;
     }
     
-    // Try parsing message if it's a JSON string (Common in Vercel logs)
+    if (error.body) {
+        try {
+             const body = JSON.parse(error.body);
+             if (body.error) {
+                 status = body.error.code || status;
+                 message = body.error.message || message;
+             }
+        } catch (e) {}
+    }
+
     if (typeof message === 'string') {
         if (message.startsWith('{') || message.startsWith('[')) {
             try {
@@ -26,13 +32,9 @@ const getErrorDetails = (error: any) => {
                     status = parsed.error.code || status;
                     message = parsed.error.message || message;
                 }
-            } catch (e) {
-                // Not JSON, keep original message
-            }
+            } catch (e) {}
         }
         
-        // FALLBACK: Regex search for common error codes in the string message
-        // This catches cases where status is missing but text says "429"
         if (!status) {
             if (message.includes('429') || message.toLowerCase().includes('quota') || message.toLowerCase().includes('exhausted')) {
                 status = 429;
@@ -45,7 +47,7 @@ const getErrorDetails = (error: any) => {
     }
 
     return { 
-        status: Number(status), // Ensure it's a number
+        status: Number(status), 
         message: String(message) 
     };
 };
@@ -53,9 +55,8 @@ const getErrorDetails = (error: any) => {
 // --- HELPER: Report Bad Key to Supabase ---
 const markKeyAsExhausted = async (key: string) => {
     try {
-        // Only mark if it's NOT the env key
-        if (key && key !== process.env.API_KEY) {
-            console.warn(`[GeminiService] Marking key ending in ...${key.slice(-4)} as exhausted.`);
+        if (key) {
+            console.warn(`[GeminiService] Marking key ...${key.slice(-4)} as exhausted.`);
             await supabase.rpc('mark_key_exhausted', { key_val: key });
         }
     } catch (e) {
@@ -63,37 +64,19 @@ const markKeyAsExhausted = async (key: string) => {
     }
 };
 
-// --- HELPER: Get Client ---
-const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promise<{ ai: GoogleGenAI, key: string, isEnvKey: boolean }> => {
+// --- HELPER: Get Client (STRICT SUPABASE ONLY) ---
+const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: string }> => {
     try {
-        // 1. Forced Env Key or Supabase not ready
-        if (forceEnvKey || !supabase) {
-            if (process.env.API_KEY) {
-                const key = process.env.API_KEY;
-                if (jobId) await updateJobApiKey(jobId, "FALLBACK_ENV_KEY");
-                return { 
-                    ai: new GoogleGenAI({ apiKey: key }),
-                    key: key,
-                    isEnvKey: true
-                };
-            }
+        // 1. Check Supabase connection
+        if (!supabase) {
             throw new Error("SYSTEM_BUSY"); 
         }
 
-        // 2. Get Key from Supabase (RPC handles rotation)
+        // 2. Get Key from Supabase
         const { data: apiKey, error } = await supabase.rpc('get_worker_key');
 
         if (error || !apiKey) {
-            // If DB fails or returns no key, fallback to Env Key if available
-            if (process.env.API_KEY) {
-                const key = process.env.API_KEY;
-                if (jobId) await updateJobApiKey(jobId, "FALLBACK_ENV_KEY");
-                return { 
-                    ai: new GoogleGenAI({ apiKey: key }),
-                    key: key,
-                    isEnvKey: true
-                };
-            }
+            console.warn("[GeminiService] Supabase get_worker_key failed or empty:", error?.message);
             throw new Error("SYSTEM_BUSY");
         }
 
@@ -104,20 +87,10 @@ const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promis
 
         return { 
             ai: new GoogleGenAI({ apiKey: apiKey }),
-            key: apiKey,
-            isEnvKey: false
+            key: apiKey
         };
     } catch (e: any) {
-        if (e.message === "SYSTEM_BUSY") throw e;
-        
-        // Final safety net
-        if (process.env.API_KEY) {
-             return { 
-                 ai: new GoogleGenAI({ apiKey: process.env.API_KEY }), 
-                 key: process.env.API_KEY,
-                 isEnvKey: true
-             };
-        }
+        console.error("Critical error initializing AI client:", e.message);
         throw e;
     }
 };
@@ -126,82 +99,86 @@ const getAIClient = async (jobId?: string, forceEnvKey: boolean = false): Promis
 async function withSmartRetry<T>(
     operation: (ai: GoogleGenAI, currentKey: string) => Promise<T>, 
     jobId?: string,
-    maxRetries: number = 15 // Try enough times to cycle through all DB keys + reset
+    maxRetries: number = 15 
 ): Promise<T> {
     let lastError: any;
     let attempts = 0;
-    let forceEnv = false;
     const failedKeys = new Set<string>(); 
+    let consecutiveQuotaErrors = 0; 
 
     while (attempts < maxRetries) {
         let currentKey = "";
-        let isCurrentEnv = false;
 
         try {
-            // 1. Fetch Client (This gets the NEXT available key from DB)
-            const client = await getAIClient(jobId, forceEnv);
+            const client = await getAIClient(jobId);
             currentKey = client.key;
-            isCurrentEnv = client.isEnvKey;
 
-            // Prevention: If DB gives back a key we just failed on in this loop, skip it
-            if (failedKeys.has(currentKey) && !isCurrentEnv) {
-                 // Ensure it's marked exhausted again just in case
-                 await markKeyAsExhausted(currentKey); 
+            // Prevention: If DB gives back a key we just failed on, skip it locally
+            if (failedKeys.has(currentKey)) {
+                 console.warn(`[GeminiService] DB returned previously failed key ...${currentKey.slice(-4)}. Skipping locally.`);
                  attempts++;
                  continue; 
             }
 
-            // 2. Execute Operation
-            return await operation(client.ai, currentKey);
+            const result = await operation(client.ai, currentKey);
+            
+            // Success
+            return result;
 
         } catch (error: any) {
              const { status, message } = getErrorDetails(error);
              lastError = error;
+             
+             console.warn(`[GeminiService] Attempt ${attempts + 1} failed. Status: ${status}. Key: ...${currentKey?.slice(-4)}`);
 
-             // Detect Limit/Quota Errors
              const isQuota = status === 429 || message.includes('quota') || message.includes('exhausted') || message.includes('429');
              const isBilling = status === 400 && (message.includes('billed users') || message.includes('billing') || message.includes('credits'));
              const isSystemBusy = message === "SYSTEM_BUSY";
 
              // Case A: DB Exhausted (No keys left)
              if (isSystemBusy) {
-                 if (!forceEnv && process.env.API_KEY) {
-                     console.warn("DB keys exhausted. Switching to Env Key.");
-                     forceEnv = true;
-                     continue;
-                 }
-                 break; // No keys left anywhere
+                 console.warn("[GeminiService] No keys available in DB. Waiting before retry...");
+                 // Wait longer to give DB a chance to reset if it was momentary
+                 await new Promise(r => setTimeout(r, 3000));
+                 attempts++;
+                 continue; 
              }
 
-             // Case B: Key Hit Limit -> Mark & Rotate
+             // Case B: Key Hit Limit/Billing -> Mark & Rotate
              if (isQuota || isBilling) {
-                 if (!isCurrentEnv && currentKey) {
-                     console.warn(`Key ...${currentKey.slice(-4)} failed (${status}). Marking as exhausted & rotating.`);
+                 consecutiveQuotaErrors++;
+
+                 // ANTI-CASCADE LOGIC (Modified for Strict Mode):
+                 // If multiple keys fail rapidly (likely IP block), just wait longer.
+                 // We CANNOT switch to Env Key.
+                 if (consecutiveQuotaErrors >= 3) {
+                     console.warn(`[GeminiService] Suspected IP block (${consecutiveQuotaErrors}). Pausing for 5s...`);
+                     await new Promise(r => setTimeout(r, 5000));
+                 }
+
+                 if (currentKey) {
+                     console.warn(`[GeminiService] Key ...${currentKey.slice(-4)} exhausted. Marking in DB.`);
                      
-                     // A. Tell DB this key is dead
                      await markKeyAsExhausted(currentKey);
-                     
-                     // B. Track locally
                      failedKeys.add(currentKey);
                      
-                     // C. IMPORTANT: Wait before retrying to avoid rapid-fire exhaustion due to IP blocks
-                     await new Promise(r => setTimeout(r, 2000));
-
-                     // D. Retry loop -> getAIClient will fetch next key
                      attempts++;
+                     // Small delay to prevent burning through keys too fast
+                     await new Promise(r => setTimeout(r, 1500)); 
                      continue; 
                  } 
              }
              
+             // Reset counter if error is different
+             consecutiveQuotaErrors = 0;
+
              // Case C: Server Error -> Wait & Retry
              if (status === 503 || status === 500) {
                  attempts++;
-                 await new Promise(r => setTimeout(r, 2000));
+                 await new Promise(r => setTimeout(r, 3000));
                  continue;
              }
 
-             // Case D: Fatal Error (Prompt issue, etc) -> Stop
-             // But if status is undefined (network error), retry a few times
              if (!status) {
                  attempts++;
                  await new Promise(r => setTimeout(r, 1000));
@@ -218,7 +195,7 @@ async function withSmartRetry<T>(
 // --- GENERATION FUNCTIONS ---
 
 const generateImageFallback = async (prompt: string, numberOfImages: number, jobId?: string): Promise<string[]> => {
-    console.warn(`Falling back to gemini-2.5-flash-image`);
+    console.warn(`[GeminiService] Triggering Fallback to Flash Model`);
     return withSmartRetry(async (ai) => {
         const parts = [{ text: prompt }];
         const promises = Array.from({ length: numberOfImages }).map(async () => {
@@ -255,7 +232,6 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
 
     } catch (error: any) {
         const { status, message } = getErrorDetails(error);
-        // Fallback check using parsed details
         if (status === 400 && (message.includes('billed users') || message.includes('billing'))) {
             return await generateImageFallback(prompt, numberOfImages, jobId);
         }
@@ -276,7 +252,7 @@ export const generateVideo = async (prompt: string, startImage?: FileData, jobId
             };
         }
 
-        // @ts-ignore - Type definition mismatch workaround
+        // @ts-ignore
         let operation: Operation<GenerateVideosResponse> = await ai.models.generateVideos({
             model: 'veo-2.0-generate-001',
             prompt: finalPrompt,
