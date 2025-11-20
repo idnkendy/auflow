@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
 import { supabase } from "./supabaseClient";
@@ -86,16 +87,16 @@ const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: stri
             key: apiKey
         };
     } catch (e: any) {
-        console.error("Critical error initializing AI client:", e.message);
+        // console.error("Critical error initializing AI client:", e.message); // Reduce log noise
         throw e;
     }
 };
 
-// --- SMART RETRY LOGIC ---
+// --- SMART RETRY LOGIC (EXPONENTIAL BACKOFF) ---
 async function withSmartRetry<T>(
     operation: (ai: GoogleGenAI, currentKey: string) => Promise<T>, 
     jobId?: string,
-    maxRetries: number = 15 
+    maxRetries: number = 10 
 ): Promise<T> {
     let lastError: any;
     let attempts = 0;
@@ -106,15 +107,17 @@ async function withSmartRetry<T>(
         let currentKey = "";
 
         try {
+            // 1. Get Client
             const client = await getAIClient(jobId);
             currentKey = client.key;
 
+            // Prevent immediate re-use of failed local key
             if (failedKeys.has(currentKey)) {
-                 console.warn(`[GeminiService] DB returned previously failed key ...${currentKey.slice(-4)}. Skipping locally.`);
                  attempts++;
                  continue; 
             }
 
+            // 2. Execute
             const result = await operation(client.ai, currentKey);
             return result;
 
@@ -122,49 +125,72 @@ async function withSmartRetry<T>(
              const { status, message } = getErrorDetails(error);
              lastError = error;
              
-             console.warn(`[GeminiService] Attempt ${attempts + 1} failed. Status: ${status}. Key: ...${currentKey?.slice(-4)}`);
+             // Logging for debug
+             // console.warn(`[GeminiService] Attempt ${attempts + 1} failed. Status: ${status}.`);
 
              const isQuota = status === 429 || message.includes('quota') || message.includes('exhausted') || message.includes('429');
-             // Treat Billing errors (400) as exhausted for Flash models too, just to be safe and rotate
              const isBilling = status === 400 && (message.includes('billed users') || message.includes('billing') || message.includes('credits'));
              const isSystemBusy = message === "SYSTEM_BUSY";
 
+             // Case A: No Keys in DB
              if (isSystemBusy) {
-                 console.warn("[GeminiService] No keys available in DB. Waiting before retry...");
+                 console.warn("[GeminiService] No keys available. Waiting 3s...");
                  await new Promise(r => setTimeout(r, 3000));
                  attempts++;
                  continue; 
              }
 
-             if (isQuota || isBilling) {
+             // Case B: Quota / Rate Limit (429)
+             if (isQuota) {
                  consecutiveQuotaErrors++;
-
-                 if (consecutiveQuotaErrors >= 3) {
-                     console.warn(`[GeminiService] Suspected IP block (${consecutiveQuotaErrors}). Pausing for 5s...`);
-                     await new Promise(r => setTimeout(r, 5000));
-                 }
-
+                 
+                 // Mark key as bad in DB
                  if (currentKey) {
-                     console.warn(`[GeminiService] Key ...${currentKey.slice(-4)} failed (${status}). Marking in DB.`);
                      await markKeyAsExhausted(currentKey);
                      failedKeys.add(currentKey);
-                     
-                     attempts++;
-                     await new Promise(r => setTimeout(r, 1500)); 
-                     continue; 
-                 } 
+                 }
+
+                 // Exponential Backoff with Jitter
+                 // Delay = (Base * 1.5^attempts) + Random(0-1000ms)
+                 // This prevents all requests from hitting Vercel/Google at the exact same millisecond
+                 const baseDelay = 2000; 
+                 const backoff = Math.pow(1.5, consecutiveQuotaErrors); 
+                 const jitter = Math.random() * 1000;
+                 const delay = Math.min((baseDelay * backoff) + jitter, 15000); // Cap at 15s
+
+                 console.warn(`[GeminiService] Rate limit (429). IP might be throttled. Pausing for ${Math.round(delay)}ms...`);
+                 await new Promise(r => setTimeout(r, delay));
+                 
+                 attempts++;
+                 continue; 
              }
              
+             // Case C: Billing Error (400)
+             // Even for Flash, sometimes 400 appears if the project is suspended or invalid.
+             // We treat it as a dead key and rotate.
+             if (isBilling) {
+                 console.warn(`[GeminiService] Key ...${currentKey?.slice(-4)} billing error. Rotating.`);
+                 if (currentKey) {
+                    await markKeyAsExhausted(currentKey);
+                    failedKeys.add(currentKey);
+                 }
+                 attempts++;
+                 continue;
+             }
+             
+             // Reset quota counter if error is unrelated
              consecutiveQuotaErrors = 0;
 
+             // Case D: Server Errors (500, 503)
              if (status === 503 || status === 500) {
                  attempts++;
-                 await new Promise(r => setTimeout(r, 3000));
+                 await new Promise(r => setTimeout(r, 2000));
                  continue;
              }
 
+             // Case E: Fatal Errors (Prompt too long, etc)
              if (!status) {
-                 attempts++;
+                 attempts++; // Retry once or twice for network blips
                  await new Promise(r => setTimeout(r, 1000));
                  continue;
              }
@@ -178,16 +204,15 @@ async function withSmartRetry<T>(
 
 // --- GENERATION FUNCTIONS ---
 
-// REPLACED: Now using gemini-2.5-flash-image as the DEFAULT model for all image generation
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1, jobId?: string): Promise<string[]> => {
     return withSmartRetry(async (ai) => {
-        // gemini-2.5-flash-image uses prompts for aspect ratio best, it doesn't strictly enforce the config parameter like Imagen
+        // Use Flash model by default for reliability on Free Tier
         const finalPrompt = `${prompt}. Aspect Ratio: ${aspectRatio}.`;
         const parts = [{ text: finalPrompt }];
         
         const promises = Array.from({ length: numberOfImages }).map(async () => {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image', // Switched to Flash
+                model: 'gemini-2.5-flash-image',
                 contents: { parts },
                 config: { responseModalities: [Modality.IMAGE] },
             });
@@ -244,7 +269,7 @@ export const generateVideo = async (prompt: string, startImage?: FileData, jobId
 };
 
 // --- EDIT / TEXT FUNCTIONS ---
-// Helper for Flash Image Editing
+
 const generateGeminiEdit = async (parts: any[], numberOfImages: number, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     return withSmartRetry(async (ai) => {
         const promises = Array.from({ length: numberOfImages }).map(async () => {
