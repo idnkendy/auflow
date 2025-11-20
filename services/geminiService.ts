@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
 import { supabase } from "./supabaseClient";
@@ -67,12 +66,10 @@ const markKeyAsExhausted = async (key: string) => {
 // --- HELPER: Get Client (STRICT SUPABASE ONLY) ---
 const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: string }> => {
     try {
-        // 1. Check Supabase connection
         if (!supabase) {
             throw new Error("SYSTEM_BUSY"); 
         }
 
-        // 2. Get Key from Supabase
         const { data: apiKey, error } = await supabase.rpc('get_worker_key');
 
         if (error || !apiKey) {
@@ -80,7 +77,6 @@ const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: stri
             throw new Error("SYSTEM_BUSY");
         }
 
-        // 3. Log usage
         if (jobId) {
             await updateJobApiKey(jobId, apiKey);
         }
@@ -121,8 +117,6 @@ async function withSmartRetry<T>(
             }
 
             const result = await operation(client.ai, currentKey);
-            
-            // Success
             return result;
 
         } catch (error: any) {
@@ -135,44 +129,46 @@ async function withSmartRetry<T>(
              const isBilling = status === 400 && (message.includes('billed users') || message.includes('billing') || message.includes('credits'));
              const isSystemBusy = message === "SYSTEM_BUSY";
 
-             // Case A: DB Exhausted (No keys left)
              if (isSystemBusy) {
                  console.warn("[GeminiService] No keys available in DB. Waiting before retry...");
-                 // Wait longer to give DB a chance to reset if it was momentary
                  await new Promise(r => setTimeout(r, 3000));
                  attempts++;
                  continue; 
              }
 
-             // Case B: Key Hit Limit/Billing -> Mark & Rotate
-             if (isQuota || isBilling) {
+             // CASE 1: QUOTA ERROR (429) -> Rotate Key
+             if (isQuota) {
                  consecutiveQuotaErrors++;
 
-                 // ANTI-CASCADE LOGIC (Modified for Strict Mode):
-                 // If multiple keys fail rapidly (likely IP block), just wait longer.
-                 // We CANNOT switch to Env Key.
+                 // Anti-cascade: If IP blocked (multiple 429s in a row), slow down significantly
                  if (consecutiveQuotaErrors >= 3) {
                      console.warn(`[GeminiService] Suspected IP block (${consecutiveQuotaErrors}). Pausing for 5s...`);
                      await new Promise(r => setTimeout(r, 5000));
                  }
 
                  if (currentKey) {
-                     console.warn(`[GeminiService] Key ...${currentKey.slice(-4)} exhausted. Marking in DB.`);
-                     
+                     console.warn(`[GeminiService] Key ...${currentKey.slice(-4)} exhausted (429). Marking in DB.`);
                      await markKeyAsExhausted(currentKey);
                      failedKeys.add(currentKey);
                      
                      attempts++;
-                     // Small delay to prevent burning through keys too fast
                      await new Promise(r => setTimeout(r, 1500)); 
                      continue; 
                  } 
              }
              
-             // Reset counter if error is different
+             // CASE 2: BILLING ERROR (400) -> THROW TO FALLBACK
+             // IMPORTANT: Do NOT mark as exhausted. Do NOT rotate. 
+             // Throwing here allows generateImage's catch block to pick this up and trigger Fallback mode.
+             if (isBilling) {
+                 console.warn(`[GeminiService] Key ...${currentKey?.slice(-4)} has billing restriction (400). Triggering Fallback.`);
+                 throw error; 
+             }
+             
+             // Reset quota counter if error is something else (like network glitch)
              consecutiveQuotaErrors = 0;
 
-             // Case C: Server Error -> Wait & Retry
+             // Case 3: Server Error -> Wait & Retry
              if (status === 503 || status === 500) {
                  attempts++;
                  await new Promise(r => setTimeout(r, 3000));
@@ -232,6 +228,7 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
 
     } catch (error: any) {
         const { status, message } = getErrorDetails(error);
+        // Fallback check using parsed details
         if (status === 400 && (message.includes('billed users') || message.includes('billing'))) {
             return await generateImageFallback(prompt, numberOfImages, jobId);
         }
