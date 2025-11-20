@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
 import { supabase } from "./supabaseClient";
@@ -15,17 +16,31 @@ const getErrorDetails = (error: any) => {
         if (error.error.code) status = error.error.code;
         if (error.error.message) message = error.error.message;
     }
-
+    
     // Try parsing message if it's a JSON string (Common in Vercel logs)
-    if (typeof message === 'string' && (message.startsWith('{') || message.startsWith('['))) {
-        try {
-            const parsed = JSON.parse(message);
-            if (parsed.error) {
-                if (parsed.error.code) status = parsed.error.code;
-                if (parsed.error.message) message = parsed.error.message;
+    if (typeof message === 'string') {
+        if (message.startsWith('{') || message.startsWith('[')) {
+            try {
+                const parsed = JSON.parse(message);
+                if (parsed.error) {
+                    status = parsed.error.code || status;
+                    message = parsed.error.message || message;
+                }
+            } catch (e) {
+                // Not JSON, keep original message
             }
-        } catch (e) {
-            // Not JSON, keep original message
+        }
+        
+        // FALLBACK: Regex search for common error codes in the string message
+        // This catches cases where status is missing but text says "429"
+        if (!status) {
+            if (message.includes('429') || message.toLowerCase().includes('quota') || message.toLowerCase().includes('exhausted')) {
+                status = 429;
+            } else if (message.includes('400') || message.toLowerCase().includes('billing')) {
+                status = 400;
+            } else if (message.includes('503') || message.toLowerCase().includes('overloaded')) {
+                status = 503;
+            }
         }
     }
 
@@ -40,7 +55,7 @@ const markKeyAsExhausted = async (key: string) => {
     try {
         // Only mark if it's NOT the env key
         if (key && key !== process.env.API_KEY) {
-            console.warn(`Marking key ending in ...${key.slice(-4)} as exhausted.`);
+            console.warn(`[GeminiService] Marking key ending in ...${key.slice(-4)} as exhausted.`);
             await supabase.rpc('mark_key_exhausted', { key_val: key });
         }
     } catch (e) {
@@ -169,7 +184,10 @@ async function withSmartRetry<T>(
                      // B. Track locally
                      failedKeys.add(currentKey);
                      
-                     // C. Retry loop immediately -> getAIClient will fetch next key
+                     // C. IMPORTANT: Wait before retrying to avoid rapid-fire exhaustion due to IP blocks
+                     await new Promise(r => setTimeout(r, 2000));
+
+                     // D. Retry loop -> getAIClient will fetch next key
                      attempts++;
                      continue; 
                  } 
@@ -178,11 +196,18 @@ async function withSmartRetry<T>(
              // Case C: Server Error -> Wait & Retry
              if (status === 503 || status === 500) {
                  attempts++;
-                 await new Promise(r => setTimeout(r, 1500));
+                 await new Promise(r => setTimeout(r, 2000));
                  continue;
              }
 
              // Case D: Fatal Error (Prompt issue, etc) -> Stop
+             // But if status is undefined (network error), retry a few times
+             if (!status) {
+                 attempts++;
+                 await new Promise(r => setTimeout(r, 1000));
+                 continue;
+             }
+
              throw error; 
         }
     }
