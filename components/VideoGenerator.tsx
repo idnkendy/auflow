@@ -1,6 +1,8 @@
 
-import React, { useEffect } from 'react';
+// ... imports giữ nguyên ...
+import React, { useEffect, useState } from 'react';
 import * as geminiService from '../services/geminiService';
+import * as externalVideoService from '../services/externalVideoService';
 import * as historyService from '../services/historyService';
 import * as jobService from '../services/jobService';
 import { refundCredits } from '../services/paymentService';
@@ -10,15 +12,16 @@ import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
 import { supabase } from '../services/supabaseClient';
 
+// ... (Giữ nguyên các const loadingMessages, suggestions...)
 const loadingMessages = [
-    "Đang khởi tạo các photon ánh sáng...",
-    "Đang render các bóng đổ thực tế...",
-    "Đang sắp xếp các pixel thành một kiệt tác...",
-    "AI đang uống một chút cà phê để sáng tạo...",
-    "Đang tính toán động lực học chất lỏng cho hồ bơi...",
-    "Việc này có thể mất vài phút, hãy kiên nhẫn nhé...",
+    "Đang gửi yêu cầu đến Vercel Serverless...",
+    "Đang xếp hàng chờ GPU xử lý...",
+    "AI đang vẽ từng khung hình...",
+    "Đang tổng hợp chuyển động...",
+    "Vui lòng không tắt tab này...",
+    "Sắp xong rồi, kiên nhẫn nhé...",
 ];
-
+// ... (Giữ nguyên exteriorSuggestions, interiorSuggestions, FilmIcon...)
 const exteriorSuggestions = [
     { label: 'Tiếp Cận Công Trình Từ Xa (Flycam)', prompt: 'Một video flycam bay chậm rãi tiến lại gần công trình từ xa.' },
     { label: 'Bay Vòng Quanh Toàn Cảnh (Orbit)', prompt: 'Một video flycam bay vòng quanh công trình để thể hiện mọi góc cạnh.' },
@@ -60,6 +63,10 @@ interface VideoGeneratorProps {
 
 const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { prompt, startImage, isLoading, loadingMessage, error, generatedVideoUrl, mode } = state;
+    
+    const [renderSource, setRenderSource] = useState<'google' | 'veo3_external'>('veo3_external');
+    // Mặc định rỗng để dùng relative path của Vercel (/api/py/...)
+    const [backendUrl, setBackendUrl] = useState<string>(''); 
 
     useEffect(() => {
         let interval: ReturnType<typeof setInterval>;
@@ -75,19 +82,20 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
         };
     }, [isLoading, loadingMessage, onStateChange]);
 
+    // ... (Giữ nguyên handleSuggestionSelect) ...
     const handleSuggestionSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedPrompt = e.target.value;
         if (selectedPrompt) {
             const newPrompt = prompt.trim() ? `${prompt.trim()}. ${selectedPrompt}` : selectedPrompt;
             onStateChange({ prompt: newPrompt });
-            e.target.value = ""; // Reset dropdown after selection
+            e.target.value = ""; 
         }
     };
 
-    const cost = 50;
+    const cost = renderSource === 'google' ? 50 : 0; 
 
     const handleGenerate = async () => {
-        if (onDeductCredits && userCredits < cost) {
+        if (cost > 0 && onDeductCredits && userCredits < cost) {
              onStateChange({ error: `Bạn không đủ credits. Cần ${cost} credits nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
              return;
         }
@@ -100,37 +108,48 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
             isLoading: true, 
             error: null, 
             generatedVideoUrl: null, 
-            loadingMessage: loadingMessages[0] 
+            loadingMessage: "Đang khởi tạo tiến trình tạo video..."
         });
 
         let jobId: string | null = null;
         let logId: string | null = null;
 
         try {
-            if (onDeductCredits) {
-                logId = await onDeductCredits(cost, "Tạo video AI");
+            // 1. Ping Server (Optional, skip for Vercel internal)
+            // await externalVideoService.pingServer(backendUrl);
+
+            // 2. Deduct Credits
+            if (cost > 0 && onDeductCredits) {
+                logId = await onDeductCredits(cost, `Tạo video AI (${renderSource})`);
             }
 
+            // 3. Create Job
             const { data: { user } } = await supabase.auth.getUser();
-            if (user && logId) {
+            if (user) {
                  jobId = await jobService.createJob({
                     user_id: user.id,
                     tool_id: Tool.VideoGeneration,
                     prompt: prompt,
                     cost: cost,
-                    usage_log_id: logId
+                    usage_log_id: logId || undefined
                 });
             }
 
             if (jobId) await jobService.updateJobStatus(jobId, 'processing');
 
-            // Pass jobId to generateVideo
-            const url = await geminiService.generateVideo(prompt, startImage || undefined, jobId || undefined);
+            let url = "";
+            if (renderSource === 'google') {
+                url = await geminiService.generateVideo(prompt, startImage || undefined, jobId || undefined);
+            } else {
+                // Gọi service mới hỗ trợ Polling
+                url = await externalVideoService.generateVideoExternal(prompt, backendUrl, startImage || undefined);
+            }
+            
             onStateChange({ generatedVideoUrl: url });
 
             if (jobId) await jobService.updateJobStatus(jobId, 'completed', url);
 
-            historyService.addToHistory({
+            await historyService.addToHistory({
                 tool: Tool.VideoGeneration,
                 prompt,
                 sourceImageURL: startImage?.objectURL,
@@ -138,27 +157,29 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
             });
 
         } catch (err: any) {
-            const errorMessage = err.message || 'Đã xảy ra lỗi không mong muốn.';
+            console.error("Generation Error:", err);
+            let errorMessage = err.message || 'Đã xảy ra lỗi không mong muốn.';
+            
+            if (errorMessage.includes('Quá thời gian chờ') || errorMessage.includes('Timeout')) {
+                errorMessage = "Hệ thống đang bận hoặc quá thời gian chờ. Vui lòng thử lại.";
+            } 
+            
             onStateChange({ error: errorMessage });
 
-            if (jobId) {
-                await jobService.updateJobStatus(jobId, 'failed', undefined, errorMessage);
-            }
+            if (jobId) await jobService.updateJobStatus(jobId, 'failed', undefined, errorMessage);
 
-            // Refund
-             const { data: { user } } = await supabase.auth.getUser();
-             if (user) {
-                await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi tạo video (${errorMessage})`);
-             }
+            if (cost > 0) {
+                 const { data: { user } } = await supabase.auth.getUser();
+                 if (user) await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi tạo video (${errorMessage})`);
+            }
 
         } finally {
             onStateChange({ isLoading: false });
         }
     };
-
+    
     const handleDownload = () => {
         if (!generatedVideoUrl) return;
-
         const link = document.createElement('a');
         link.href = generatedVideoUrl;
         link.download = "generated-video.mp4";
@@ -175,6 +196,47 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
                 {/* --- LEFT COLUMN: INPUTS --- */}
                 <div className="space-y-6">
+                    {/* Source Selection */}
+                    <div className="bg-main-bg dark:bg-gray-800 p-4 rounded-xl border border-border-color dark:border-gray-700">
+                        <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Nguồn Render</label>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setRenderSource('veo3_external')}
+                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${renderSource === 'veo3_external' ? 'bg-purple-600 text-white shadow' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}
+                            >
+                                Veo 3 (Serverless Vercel)
+                            </button>
+                             <button 
+                                disabled
+                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all bg-gray-200 dark:bg-gray-700 text-gray-400 opacity-50 cursor-not-allowed border border-gray-300 dark:border-gray-600`}
+                                title="Tính năng tạm thời bảo trì"
+                            >
+                                Google Veo (Bảo trì)
+                            </button>
+                        </div>
+                        
+                        {/* Backend URL Config (Hidden mostly, only if user wants custom Render) */}
+                        {renderSource === 'veo3_external' && (
+                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                <div className="flex justify-between">
+                                     <label htmlFor="backend-url" className="block text-xs font-bold text-text-primary dark:text-white mb-1">Server URL (Mặc định: Vercel Local)</label>
+                                </div>
+                                <input 
+                                    id="backend-url"
+                                    type="text" 
+                                    value={backendUrl}
+                                    onChange={(e) => setBackendUrl(e.target.value)}
+                                    placeholder="Để trống để dùng Vercel API mặc định"
+                                    className="w-full text-xs p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-mono"
+                                />
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                    Chỉ nhập nếu bạn muốn dùng server Render riêng (VD: <code>https://my-app.onrender.com</code>). Để trống để chạy trực tiếp trên Vercel.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ... (Giữ nguyên phần nhập Prompt, Mode, Start Image) ... */}
                      <div>
                         <label htmlFor="prompt-video" className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Mô tả (Prompt)</label>
                         <textarea
@@ -223,9 +285,6 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
                                     </option>
                                 ))}
                             </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-text-secondary dark:text-gray-400">
-                               <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4"/></svg>
-                            </div>
                         </div>
                     </div>
                     
@@ -245,9 +304,9 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
                         </div>
                         <div className="text-xs">
                             {userCredits < cost ? (
-                                <span className="text-red-500 font-semibold">Không đủ (Có: {userCredits})</span>
+                                <span className="text-red-500 font-semibold">Không đủ</span>
                             ) : (
-                                <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                                <span className="text-green-600 dark:text-green-400">Khả dụng</span>
                             )}
                         </div>
                     </div>
@@ -256,9 +315,9 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
                         disabled={isLoading || userCredits < cost}
                         className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                     >
-                       {isLoading ? <><Spinner /> Đang tạo...</> : 'Tạo Video'}
+                       {isLoading ? <><Spinner /> Đang xử lý...</> : 'Tạo Video'}
                     </button>
-                    {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
+                    {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm whitespace-pre-wrap">{error}</div>}
                 </div>
 
                 {/* --- RIGHT COLUMN: VIDEO DISPLAY --- */}
@@ -269,7 +328,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
                             {isLoading && (
                                 <div className="text-center p-4">
                                     <Spinner />
-                                    <p className="text-text-secondary dark:text-gray-400 mt-4">{loadingMessage}</p>
+                                    <p className="text-text-secondary dark:text-gray-400 mt-4 animate-pulse">{loadingMessage}</p>
                                 </div>
                             )}
                             {!isLoading && generatedVideoUrl && (
