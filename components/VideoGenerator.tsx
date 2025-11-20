@@ -1,5 +1,4 @@
 
-// ... imports giữ nguyên ...
 import React, { useEffect, useState } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as externalVideoService from '../services/externalVideoService';
@@ -12,7 +11,6 @@ import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
 import { supabase } from '../services/supabaseClient';
 
-// ... (Giữ nguyên các const loadingMessages, suggestions...)
 const loadingMessages = [
     "Đang gửi yêu cầu đến Vercel Serverless...",
     "Đang xếp hàng chờ GPU xử lý...",
@@ -21,7 +19,7 @@ const loadingMessages = [
     "Vui lòng không tắt tab này...",
     "Sắp xong rồi, kiên nhẫn nhé...",
 ];
-// ... (Giữ nguyên exteriorSuggestions, interiorSuggestions, FilmIcon...)
+
 const exteriorSuggestions = [
     { label: 'Tiếp Cận Công Trình Từ Xa (Flycam)', prompt: 'Một video flycam bay chậm rãi tiến lại gần công trình từ xa.' },
     { label: 'Bay Vòng Quanh Toàn Cảnh (Orbit)', prompt: 'Một video flycam bay vòng quanh công trình để thể hiện mọi góc cạnh.' },
@@ -82,7 +80,6 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
         };
     }, [isLoading, loadingMessage, onStateChange]);
 
-    // ... (Giữ nguyên handleSuggestionSelect) ...
     const handleSuggestionSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedPrompt = e.target.value;
         if (selectedPrompt) {
@@ -92,10 +89,11 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
         }
     };
 
-    const cost = renderSource === 'google' ? 50 : 0; 
+    // Fixed cost: 50 credits
+    const cost = 50; 
 
     const handleGenerate = async () => {
-        if (cost > 0 && onDeductCredits && userCredits < cost) {
+        if (onDeductCredits && userCredits < cost) {
              onStateChange({ error: `Bạn không đủ credits. Cần ${cost} credits nhưng chỉ còn ${userCredits}. Vui lòng nạp thêm.` });
              return;
         }
@@ -115,15 +113,12 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
         let logId: string | null = null;
 
         try {
-            // 1. Ping Server (Optional, skip for Vercel internal)
-            // await externalVideoService.pingServer(backendUrl);
-
-            // 2. Deduct Credits
-            if (cost > 0 && onDeductCredits) {
+            // 1. Deduct Credits
+            if (onDeductCredits) {
                 logId = await onDeductCredits(cost, `Tạo video AI (${renderSource})`);
             }
 
-            // 3. Create Job
+            // 2. Create Job
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                  jobId = await jobService.createJob({
@@ -168,10 +163,9 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
 
             if (jobId) await jobService.updateJobStatus(jobId, 'failed', undefined, errorMessage);
 
-            if (cost > 0) {
-                 const { data: { user } } = await supabase.auth.getUser();
-                 if (user) await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi tạo video (${errorMessage})`);
-            }
+            // Refund on error
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi tạo video (${errorMessage})`);
 
         } finally {
             onStateChange({ isLoading: false });
@@ -214,29 +208,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
                                 Google Veo (Bảo trì)
                             </button>
                         </div>
-                        
-                        {/* Backend URL Config (Hidden mostly, only if user wants custom Render) */}
-                        {renderSource === 'veo3_external' && (
-                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                                <div className="flex justify-between">
-                                     <label htmlFor="backend-url" className="block text-xs font-bold text-text-primary dark:text-white mb-1">Server URL (Mặc định: Vercel Local)</label>
-                                </div>
-                                <input 
-                                    id="backend-url"
-                                    type="text" 
-                                    value={backendUrl}
-                                    onChange={(e) => setBackendUrl(e.target.value)}
-                                    placeholder="Để trống để dùng Vercel API mặc định"
-                                    className="w-full text-xs p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-mono"
-                                />
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                    Chỉ nhập nếu bạn muốn dùng server Render riêng (VD: <code>https://my-app.onrender.com</code>). Để trống để chạy trực tiếp trên Vercel.
-                                </p>
-                            </div>
-                        )}
                     </div>
 
-                    {/* ... (Giữ nguyên phần nhập Prompt, Mode, Start Image) ... */}
                      <div>
                         <label htmlFor="prompt-video" className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Mô tả (Prompt)</label>
                         <textarea

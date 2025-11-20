@@ -1,6 +1,7 @@
 
 import { supabase } from './supabaseClient';
 import { GenerationJob } from '../types';
+import { refundCredits } from './paymentService';
 
 export const createJob = async (jobData: Partial<GenerationJob>): Promise<string | null> => {
     try {
@@ -61,5 +62,42 @@ export const updateJobApiKey = async (jobId: string, apiKey: string) => {
             
     } catch (e) {
         console.error("Error logging API key usage:", e);
+    }
+};
+
+export const cleanupStaleJobs = async (userId: string) => {
+    try {
+        // 15 minutes ago
+        const cutoffTime = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+        // Find stuck jobs for this user
+        const { data: staleJobs, error } = await supabase
+            .from('generation_jobs')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('status', 'processing')
+            .lt('updated_at', cutoffTime);
+
+        if (error) {
+            console.error("Error fetching stale jobs:", error);
+            return;
+        }
+
+        if (!staleJobs || staleJobs.length === 0) return;
+
+        console.log(`[JobService] Found ${staleJobs.length} stale jobs. Cleaning up...`);
+
+        for (const job of staleJobs) {
+            // 1. Mark as failed
+            await updateJobStatus(job.id, 'failed', undefined, 'System Timeout: Processing took longer than 15 minutes.');
+
+            // 2. Refund
+            if (job.cost > 0) {
+                console.log(`[JobService] Refunding ${job.cost} credits for job ${job.id}`);
+                await refundCredits(job.user_id, job.cost, `Hoàn tiền: Tác vụ bị treo (Job ID: ${job.id.substring(0, 8)}...)`);
+            }
+        }
+    } catch (e) {
+        console.error("Error cleaning up stale jobs:", e);
     }
 };

@@ -164,11 +164,15 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                                                 <ProfileIcon /> Hồ sơ cá nhân
                                             </button>
                                         )}
+
+                                        {/* Upgrade Button Disabled
                                         {onUpgrade && (
                                             <button onClick={() => { onUpgrade(); setIsDropdownOpen(false); }} className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-3 transition-colors">
                                                 <StarIcon /> Nâng cấp gói
                                             </button>
-                                        )}
+                                        )} 
+                                        */}
+
                                         {onGoToGallery && (
                                              <button onClick={() => { onGoToGallery(); setIsDropdownOpen(false); }} className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-3 transition-colors">
                                                 <GalleryIcon /> Thư viện của tôi

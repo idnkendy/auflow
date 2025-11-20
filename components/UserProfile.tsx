@@ -192,12 +192,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'plans'
                     >
                         Thông tin tài khoản
                     </button>
+                    
+                    {/* DISABLED PLANS TAB IN SIDEBAR */}
+                    {/* 
                     <button 
                         onClick={() => handleTabClick('plans')}
                         className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${activeTab === 'plans' ? 'bg-accent text-white' : 'text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                     >
                         Gói cước & Thanh toán
                     </button>
+                    */}
+                    
                     <button 
                         onClick={() => handleTabClick('history')}
                         className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${activeTab === 'history' ? 'bg-accent text-white' : 'text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
@@ -243,96 +248,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'plans'
                     </div>
                 )}
 
-                {/* === TAB: PLANS (CHECKOUT) === */}
+                {/* === TAB: PLANS (MAINTENANCE MODE) === */}
                 {activeTab === 'plans' && (
-                    <div className="space-y-6 animate-fade-in">
-                         <div className="text-center mb-8">
-                            <h3 className="text-2xl font-bold text-text-primary dark:text-white mb-2">Nâng cấp tài khoản</h3>
-                            <p className="text-text-secondary dark:text-gray-300">Mở khóa toàn bộ sức mạnh AI và không giới hạn lượt tạo.</p>
+                    <div className="flex flex-col items-center justify-center h-full py-12 text-center animate-fade-in">
+                        <div className="bg-yellow-100 dark:bg-yellow-900/20 p-4 rounded-full mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                            </svg>
                         </div>
-
-                         {/* Toggle Switch */}
-                        <div className="flex justify-center mb-8">
-                            <div className="bg-main-bg dark:bg-gray-800 p-1 rounded-full inline-flex shadow-inner">
-                                <button
-                                    onClick={() => setBillingMode('subscription')}
-                                    className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${billingMode === 'subscription' ? 'bg-accent text-white shadow-md' : 'text-text-secondary dark:text-gray-400 hover:text-accent'}`}
-                                >
-                                    Thuê bao tháng
-                                </button>
-                                <button
-                                    onClick={() => setBillingMode('credits')}
-                                    className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${billingMode === 'credits' ? 'bg-accent text-white shadow-md' : 'text-text-secondary dark:text-gray-400 hover:text-accent'}`}
-                                >
-                                    Mua Credits
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Pricing Cards */}
-                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                             {activePlans.map((plan) => (
-                                <div 
-                                    key={plan.id}
-                                    className={`relative flex flex-col h-full p-6 rounded-xl transition-all duration-300 border ${
-                                        plan.highlight 
-                                            ? 'bg-accent/5 dark:bg-accent/10 border-accent shadow-lg shadow-accent/10 scale-[1.02] z-10' 
-                                            : 'bg-main-bg/30 dark:bg-dark-bg border-border-color dark:border-gray-700 hover:border-accent/50'
-                                    }`}
-                                >
-                                    {plan.highlight && (
-                                        <span className="absolute top-0 right-6 -mt-3 bg-accent text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm uppercase tracking-wider">
-                                            Phổ biến
-                                        </span>
-                                    )}
-                                    <h3 className="text-xl font-bold text-text-primary dark:text-white">{plan.name}</h3>
-                                    <div className="my-4">
-                                        <span className="text-3xl font-bold text-text-primary dark:text-white">{new Intl.NumberFormat('vi-VN').format(plan.price)}</span>
-                                        <span className="text-sm font-medium text-text-secondary dark:text-gray-400 ml-1">{plan.currency}</span>
-                                    </div>
-                                    <p className="text-text-secondary dark:text-gray-400 text-xs h-8 mb-4">{plan.description}</p>
-                                    
-                                    <ul className="space-y-2 text-text-secondary dark:text-gray-300 mb-6 flex-grow text-sm">
-                                        {plan.features.map((feature, idx) => (
-                                            <li key={idx} className="flex items-start gap-2">
-                                                <CheckIcon />
-                                                <span>{feature}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    
-                                    <button 
-                                        onClick={() => handleBuyClick(plan)}
-                                        disabled={isProcessing}
-                                        className={`w-full font-bold py-2 px-4 rounded-lg transition-colors text-sm ${
-                                            plan.highlight 
-                                                ? 'bg-accent hover:bg-accent-600 text-white shadow-md' 
-                                                : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-text-primary dark:text-white'
-                                        }`}
-                                    >
-                                        {billingMode === 'subscription' ? 'Đăng ký' : 'Mua ngay'}
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-
-                         {/* Payment Info */}
-                        <div className="mt-8 bg-main-bg/50 dark:bg-gray-800/50 p-6 rounded-xl border border-border-color dark:border-gray-700 flex flex-col md:flex-row items-center gap-8">
-                             <div className="flex-shrink-0 text-center">
-                                <QRCodeIcon />
-                                <p className="text-xs text-text-secondary dark:text-gray-400 mt-2">Quét QR thanh toán nhanh</p>
-                            </div>
-                            <div className="flex-grow text-sm">
-                                 <h4 className="font-bold text-text-primary dark:text-white mb-2 text-lg">Chuyển khoản ngân hàng</h4>
-                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
-                                    <p className="text-text-secondary dark:text-gray-300"><span className="font-semibold text-text-primary dark:text-gray-200">Ngân hàng:</span> MB Bank</p>
-                                    <p className="text-text-secondary dark:text-gray-300"><span className="font-semibold text-text-primary dark:text-gray-200">STK:</span> 0123456789</p>
-                                    <p className="text-text-secondary dark:text-gray-300"><span className="font-semibold text-text-primary dark:text-gray-200">Chủ TK:</span> NGUYEN VAN A</p>
-                                    <p className="text-text-secondary dark:text-gray-300"><span className="font-semibold text-text-primary dark:text-gray-200">Nội dung:</span> [SĐT] [Mã gói]</p>
-                                 </div>
-                                 <p className="mt-3 text-xs text-yellow-600 dark:text-yellow-400 italic">* Vui lòng ghi đúng nội dung chuyển khoản để hệ thống tự động kích hoạt.</p>
-                            </div>
-                        </div>
+                        <h3 className="text-2xl font-bold text-text-primary dark:text-white mb-2">Hệ thống thanh toán đang bảo trì</h3>
+                        <p className="text-text-secondary dark:text-gray-400 max-w-md">Chúng tôi đang nâng cấp hệ thống thanh toán để phục vụ bạn tốt hơn. Vui lòng quay lại sau hoặc liên hệ hỗ trợ nếu bạn cần nạp credits gấp.</p>
                     </div>
                 )}
 
@@ -382,45 +307,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'plans'
                     </div>
                 )}
             </div>
-
-             {/* Processing / Result Modal */}
-             {(isProcessing || paymentStatus !== 'idle') && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl max-w-sm w-full text-center shadow-2xl border border-gray-200 dark:border-gray-700">
-                        {isProcessing ? (
-                            <div className="py-8">
-                                <div className="flex justify-center mb-4 text-accent">
-                                   <Spinner />
-                                </div>
-                                <h3 className="text-xl font-bold text-text-primary dark:text-white mb-2">Đang xử lý...</h3>
-                                <p className="text-text-secondary dark:text-gray-400 text-sm">Vui lòng không tắt trình duyệt.</p>
-                            </div>
-                        ) : paymentStatus === 'success' ? (
-                            <div>
-                                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                                </div>
-                                <h3 className="text-xl font-bold text-green-600 dark:text-green-400 mb-2">Thành công!</h3>
-                                <p className="text-text-secondary dark:text-gray-300 mb-6 text-sm">{statusMessage}</p>
-                                <button onClick={closeStatusModal} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                                    Hoàn tất
-                                </button>
-                            </div>
-                        ) : (
-                            <div>
-                                <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                </div>
-                                <h3 className="text-xl font-bold text-red-600 dark:text-red-400 mb-2">Thất bại</h3>
-                                <p className="text-text-secondary dark:text-gray-300 mb-6 text-sm">{statusMessage}</p>
-                                <button onClick={closeStatusModal} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                                    Thử lại
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

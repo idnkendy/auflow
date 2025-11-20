@@ -197,6 +197,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                     </button>
                                 )}
 
+                                {/* onUpgrade disabled for now
                                 {onUpgrade && (
                                     <button 
                                         onClick={() => { onUpgrade(); setIsDropdownOpen(false); }}
@@ -204,7 +205,8 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                     >
                                         <StarIcon /> Nâng cấp gói
                                     </button>
-                                )}
+                                )} 
+                                */}
 
                                 {onOpenGallery && (
                                     <button 

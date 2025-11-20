@@ -32,6 +32,7 @@ import Homepage from './components/Homepage';
 import AuthPage from './components/auth/AuthPage';
 import Spinner from './components/Spinner';
 import { getUserStatus, deductCredits } from './services/paymentService';
+import * as jobService from './services/jobService';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'homepage' | 'auth' | 'app'>('homepage');
@@ -100,6 +101,9 @@ const App: React.FC = () => {
   // Define fetchUserStatus using useCallback to be stable
   const fetchUserStatus = useCallback(async () => {
     if (session?.user) {
+      // Check for stale jobs and refund if necessary before getting status
+      await jobService.cleanupStaleJobs(session.user.id);
+      
       const status = await getUserStatus(session.user.id);
       setUserStatus(status);
     } else {
