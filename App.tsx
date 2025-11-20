@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './services/supabaseClient';
@@ -39,7 +40,7 @@ const App: React.FC = () => {
   const [loadingSession, setLoadingSession] = useState(true);
   const [activeTool, setActiveTool] = useState<Tool>(Tool.ArchitecturalRendering);
   const [toolStates, setToolStates] = useState<ToolStates>(initialToolStates);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark'); // Default to dark mode
   const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
 
   // Check for pending tab focus to auto-login after email verification
@@ -76,6 +77,7 @@ const App: React.FC = () => {
         
         if (initialSession) {
             setSession(initialSession);
+            // Force view to 'app' if session exists, fixing white screen on redirect
             setView('app'); 
         }
         setLoadingSession(false);
@@ -86,6 +88,7 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
+          // If we just got a session and we were loading or on auth, go to app
           setView('app');
       }
       setLoadingSession(false);
@@ -131,6 +134,16 @@ const App: React.FC = () => {
     } else {
         handleAuthNavigate('login');
     }
+  };
+
+  // New handler to navigate to specific tool from Homepage
+  const handleNavigateToTool = (tool: Tool) => {
+      setActiveTool(tool);
+      if (session) {
+          setView('app');
+      } else {
+          handleAuthNavigate('login');
+      }
   };
 
   const handleSignOut = async () => {
@@ -387,11 +400,12 @@ const App: React.FC = () => {
                 onUpgrade={handleUpgrade}
                 onOpenProfile={handleOpenProfile}
                 userStatus={userStatus}
+                onNavigateToTool={handleNavigateToTool}
             />
         );
     }
     return (
-        <div className="min-h-screen bg-main-bg dark:bg-gray-900 font-sans flex flex-col transition-colors duration-300">
+        <div className="min-h-screen bg-gradient-to-br from-main-bg to-gray-200 dark:from-gray-900 dark:to-gray-800 font-sans flex flex-col transition-colors duration-300">
             <Header 
                 onGoHome={handleGoHome} 
                 onThemeToggle={handleThemeToggle} 
@@ -403,9 +417,9 @@ const App: React.FC = () => {
                 userStatus={userStatus}
                 user={session.user}
             />
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row gap-6 flex-grow">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row gap-6 flex-grow h-[calc(100vh-80px)]">
                 <Navigation activeTool={activeTool} setActiveTool={setActiveTool} />
-                <main className="flex-1 bg-surface dark:bg-dark-bg p-6 sm:p-8 rounded-lg shadow-sm overflow-auto">
+                <main className="flex-1 bg-surface/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700 overflow-y-auto scrollbar-hide">
                     {renderTool()}
                 </main>
             </div>

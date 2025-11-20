@@ -5,15 +5,18 @@ import { supabase } from "./supabaseClient";
 import { updateJobApiKey } from "./jobService";
 
 // --- HELPER: Parse Error Object Robustly ---
+// Fixes issue where Vercel/Production returns different error structures
 const getErrorDetails = (error: any) => {
     let status = error.status || error.response?.status;
     let message = error.message || '';
 
+    // Handle nested Google API error structure
     if (error.error) {
         if (error.error.code) status = error.error.code;
         if (error.error.message) message = error.error.message;
     }
     
+    // Try to find status in the body if it's a fetch response error
     if (error.body) {
         try {
              const body = JSON.parse(error.body);
@@ -24,6 +27,7 @@ const getErrorDetails = (error: any) => {
         } catch (e) {}
     }
 
+    // Try parsing message if it's a JSON string (Common in Vercel logs)
     if (typeof message === 'string') {
         if (message.startsWith('{') || message.startsWith('[')) {
             try {
@@ -35,6 +39,7 @@ const getErrorDetails = (error: any) => {
             } catch (e) {}
         }
         
+        // Fallback regex for status codes in text
         if (!status) {
             if (message.includes('429') || message.toLowerCase().includes('quota') || message.toLowerCase().includes('exhausted')) {
                 status = 429;
@@ -55,7 +60,8 @@ const getErrorDetails = (error: any) => {
 // --- HELPER: Report Bad Key to Supabase ---
 const markKeyAsExhausted = async (key: string) => {
     try {
-        if (key) {
+        // Only mark if it's NOT the env key (though we don't use env key anymore, safety check)
+        if (key && key !== process.env.API_KEY) {
             console.warn(`[GeminiService] Marking key ...${key.slice(-4)} as exhausted.`);
             await supabase.rpc('mark_key_exhausted', { key_val: key });
         }
@@ -71,11 +77,12 @@ const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: stri
             throw new Error("SYSTEM_BUSY"); 
         }
 
+        // Call RPC to get the next available key
         const { data: apiKey, error } = await supabase.rpc('get_worker_key');
 
         if (error || !apiKey) {
             console.warn("[GeminiService] Supabase get_worker_key failed or empty:", error?.message);
-            throw new Error("SYSTEM_BUSY");
+            throw new Error("SYSTEM_BUSY"); // Signal to retry loop that DB is empty
         }
 
         if (jobId) {
@@ -87,16 +94,16 @@ const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: stri
             key: apiKey
         };
     } catch (e: any) {
-        // console.error("Critical error initializing AI client:", e.message); // Reduce log noise
+        // Propagate error to be handled by retry logic
         throw e;
     }
 };
 
-// --- SMART RETRY LOGIC (EXPONENTIAL BACKOFF) ---
+// --- SMART RETRY LOGIC (CORE ROTATION + EXPONENTIAL BACKOFF) ---
 async function withSmartRetry<T>(
     operation: (ai: GoogleGenAI, currentKey: string) => Promise<T>, 
     jobId?: string,
-    maxRetries: number = 10 
+    maxRetries: number = 15 
 ): Promise<T> {
     let lastError: any;
     let attempts = 0;
@@ -111,8 +118,10 @@ async function withSmartRetry<T>(
             const client = await getAIClient(jobId);
             currentKey = client.key;
 
-            // Prevent immediate re-use of failed local key
+            // Prevention: If DB gives back a key we just failed on locally, skip it and ask DB again
             if (failedKeys.has(currentKey)) {
+                 // Optional: Mark it again just to be sure DB knows
+                 await markKeyAsExhausted(currentKey); 
                  attempts++;
                  continue; 
             }
@@ -125,16 +134,15 @@ async function withSmartRetry<T>(
              const { status, message } = getErrorDetails(error);
              lastError = error;
              
-             // Logging for debug
-             // console.warn(`[GeminiService] Attempt ${attempts + 1} failed. Status: ${status}.`);
+             // console.warn(`[GeminiService] Attempt ${attempts + 1} failed. Status: ${status}. Key: ...${currentKey?.slice(-4)}`);
 
              const isQuota = status === 429 || message.includes('quota') || message.includes('exhausted') || message.includes('429');
              const isBilling = status === 400 && (message.includes('billed users') || message.includes('billing') || message.includes('credits'));
              const isSystemBusy = message === "SYSTEM_BUSY";
 
-             // Case A: No Keys in DB
+             // Case A: No Keys in DB (All used up)
              if (isSystemBusy) {
-                 console.warn("[GeminiService] No keys available. Waiting 3s...");
+                 console.warn("[GeminiService] No keys available. Waiting 3s before retry...");
                  await new Promise(r => setTimeout(r, 3000));
                  attempts++;
                  continue; 
@@ -150,35 +158,28 @@ async function withSmartRetry<T>(
                      failedKeys.add(currentKey);
                  }
 
-                 // Exponential Backoff with Jitter
-                 // Delay = (Base * 1.5^attempts) + Random(0-1000ms)
-                 // This prevents all requests from hitting Vercel/Google at the exact same millisecond
+                 // Exponential Backoff with Jitter to bypass Vercel Shared IP blocks
+                 // Delay = (2000 * 1.5^attempts) + Random(0-1000ms)
                  const baseDelay = 2000; 
                  const backoff = Math.pow(1.5, consecutiveQuotaErrors); 
                  const jitter = Math.random() * 1000;
-                 const delay = Math.min((baseDelay * backoff) + jitter, 15000); // Cap at 15s
+                 const delay = Math.min((baseDelay * backoff) + jitter, 20000); // Cap at 20s
 
-                 console.warn(`[GeminiService] Rate limit (429). IP might be throttled. Pausing for ${Math.round(delay)}ms...`);
+                 console.warn(`[GeminiService] Rate limit (429). Key exhausted. Pausing for ${Math.round(delay)}ms...`);
                  await new Promise(r => setTimeout(r, delay));
                  
                  attempts++;
                  continue; 
              }
              
-             // Case C: Billing Error (400)
-             // Even for Flash, sometimes 400 appears if the project is suspended or invalid.
-             // We treat it as a dead key and rotate.
+             // Case C: Billing Error (400) on specific model
+             // DO NOT mark as exhausted. Throw to trigger fallback model (Flash).
              if (isBilling) {
-                 console.warn(`[GeminiService] Key ...${currentKey?.slice(-4)} billing error. Rotating.`);
-                 if (currentKey) {
-                    await markKeyAsExhausted(currentKey);
-                    failedKeys.add(currentKey);
-                 }
-                 attempts++;
-                 continue;
+                 console.warn(`[GeminiService] Key ...${currentKey?.slice(-4)} has billing restriction (400). Triggering Fallback.`);
+                 throw error;
              }
              
-             // Reset quota counter if error is unrelated
+             // Reset quota counter if error is unrelated (e.g. 500)
              consecutiveQuotaErrors = 0;
 
              // Case D: Server Errors (500, 503)
@@ -188,9 +189,9 @@ async function withSmartRetry<T>(
                  continue;
              }
 
-             // Case E: Fatal Errors (Prompt too long, etc)
+             // Case E: Other Errors
              if (!status) {
-                 attempts++; // Retry once or twice for network blips
+                 attempts++; 
                  await new Promise(r => setTimeout(r, 1000));
                  continue;
              }
@@ -204,27 +205,51 @@ async function withSmartRetry<T>(
 
 // --- GENERATION FUNCTIONS ---
 
-export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1, jobId?: string): Promise<string[]> => {
+const generateImageFallback = async (prompt: string, numberOfImages: number, jobId?: string): Promise<string[]> => {
+    console.warn(`[GeminiService] Triggering Fallback to Flash Model`);
     return withSmartRetry(async (ai) => {
-        // Use Flash model by default for reliability on Free Tier
-        const finalPrompt = `${prompt}. Aspect Ratio: ${aspectRatio}.`;
-        const parts = [{ text: finalPrompt }];
-        
+        const parts = [{ text: prompt }];
         const promises = Array.from({ length: numberOfImages }).map(async () => {
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image',
                 contents: { parts },
                 config: { responseModalities: [Modality.IMAGE] },
             });
-            
             const part = response.candidates?.[0]?.content?.parts?.[0];
             if (part?.inlineData) {
                 return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
-            throw new Error("No image data returned from Flash model");
+            throw new Error("No image data in fallback response");
         });
         return Promise.all(promises);
     }, jobId);
+};
+
+export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1, jobId?: string): Promise<string[]> => {
+    try {
+        // Try High Quality Model First
+        return await withSmartRetry(async (ai) => {
+            const response = await ai.models.generateImages({
+                model: 'imagen-4.0-generate-001',
+                prompt: prompt,
+                config: {
+                    numberOfImages: numberOfImages,
+                    outputMimeType: 'image/jpeg',
+                    aspectRatio: aspectRatio,
+                },
+            });
+            if (!response.generatedImages) throw new Error("No images generated");
+            return response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
+        }, jobId);
+
+    } catch (error: any) {
+        const { status, message } = getErrorDetails(error);
+        // Fallback check: If billing (400) or quota (429) persists on HQ model, switch to Flash
+        if ((status === 400 && (message.includes('billed users') || message.includes('billing'))) || status === 429) {
+            return await generateImageFallback(prompt, numberOfImages, jobId);
+        }
+        throw error;
+    }
 };
 
 export const generateVideo = async (prompt: string, startImage?: FileData, jobId?: string): Promise<string> => {
