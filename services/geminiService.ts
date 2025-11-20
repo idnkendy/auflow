@@ -91,7 +91,7 @@ const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: stri
     }
 };
 
-// --- SMART RETRY LOGIC (CORE ROTATION) ---
+// --- SMART RETRY LOGIC ---
 async function withSmartRetry<T>(
     operation: (ai: GoogleGenAI, currentKey: string) => Promise<T>, 
     jobId?: string,
@@ -109,7 +109,6 @@ async function withSmartRetry<T>(
             const client = await getAIClient(jobId);
             currentKey = client.key;
 
-            // Prevention: If DB gives back a key we just failed on, skip it locally
             if (failedKeys.has(currentKey)) {
                  console.warn(`[GeminiService] DB returned previously failed key ...${currentKey.slice(-4)}. Skipping locally.`);
                  attempts++;
@@ -126,6 +125,7 @@ async function withSmartRetry<T>(
              console.warn(`[GeminiService] Attempt ${attempts + 1} failed. Status: ${status}. Key: ...${currentKey?.slice(-4)}`);
 
              const isQuota = status === 429 || message.includes('quota') || message.includes('exhausted') || message.includes('429');
+             // Treat Billing errors (400) as exhausted for Flash models too, just to be safe and rotate
              const isBilling = status === 400 && (message.includes('billed users') || message.includes('billing') || message.includes('credits'));
              const isSystemBusy = message === "SYSTEM_BUSY";
 
@@ -136,18 +136,16 @@ async function withSmartRetry<T>(
                  continue; 
              }
 
-             // CASE 1: QUOTA ERROR (429) -> Rotate Key
-             if (isQuota) {
+             if (isQuota || isBilling) {
                  consecutiveQuotaErrors++;
 
-                 // Anti-cascade: If IP blocked (multiple 429s in a row), slow down significantly
                  if (consecutiveQuotaErrors >= 3) {
                      console.warn(`[GeminiService] Suspected IP block (${consecutiveQuotaErrors}). Pausing for 5s...`);
                      await new Promise(r => setTimeout(r, 5000));
                  }
 
                  if (currentKey) {
-                     console.warn(`[GeminiService] Key ...${currentKey.slice(-4)} exhausted (429). Marking in DB.`);
+                     console.warn(`[GeminiService] Key ...${currentKey.slice(-4)} failed (${status}). Marking in DB.`);
                      await markKeyAsExhausted(currentKey);
                      failedKeys.add(currentKey);
                      
@@ -157,18 +155,8 @@ async function withSmartRetry<T>(
                  } 
              }
              
-             // CASE 2: BILLING ERROR (400) -> THROW TO FALLBACK
-             // IMPORTANT: Do NOT mark as exhausted. Do NOT rotate. 
-             // Throwing here allows generateImage's catch block to pick this up and trigger Fallback mode.
-             if (isBilling) {
-                 console.warn(`[GeminiService] Key ...${currentKey?.slice(-4)} has billing restriction (400). Triggering Fallback.`);
-                 throw error; 
-             }
-             
-             // Reset quota counter if error is something else (like network glitch)
              consecutiveQuotaErrors = 0;
 
-             // Case 3: Server Error -> Wait & Retry
              if (status === 503 || status === 500) {
                  attempts++;
                  await new Promise(r => setTimeout(r, 3000));
@@ -190,50 +178,28 @@ async function withSmartRetry<T>(
 
 // --- GENERATION FUNCTIONS ---
 
-const generateImageFallback = async (prompt: string, numberOfImages: number, jobId?: string): Promise<string[]> => {
-    console.warn(`[GeminiService] Triggering Fallback to Flash Model`);
+// REPLACED: Now using gemini-2.5-flash-image as the DEFAULT model for all image generation
+export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1, jobId?: string): Promise<string[]> => {
     return withSmartRetry(async (ai) => {
-        const parts = [{ text: prompt }];
+        // gemini-2.5-flash-image uses prompts for aspect ratio best, it doesn't strictly enforce the config parameter like Imagen
+        const finalPrompt = `${prompt}. Aspect Ratio: ${aspectRatio}.`;
+        const parts = [{ text: finalPrompt }];
+        
         const promises = Array.from({ length: numberOfImages }).map(async () => {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
+                model: 'gemini-2.5-flash-image', // Switched to Flash
                 contents: { parts },
                 config: { responseModalities: [Modality.IMAGE] },
             });
+            
             const part = response.candidates?.[0]?.content?.parts?.[0];
             if (part?.inlineData) {
                 return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
-            throw new Error("No image data in fallback response");
+            throw new Error("No image data returned from Flash model");
         });
         return Promise.all(promises);
     }, jobId);
-};
-
-export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1, jobId?: string): Promise<string[]> => {
-    try {
-        return await withSmartRetry(async (ai) => {
-            const response = await ai.models.generateImages({
-                model: 'imagen-4.0-generate-001',
-                prompt: prompt,
-                config: {
-                    numberOfImages: numberOfImages,
-                    outputMimeType: 'image/jpeg',
-                    aspectRatio: aspectRatio,
-                },
-            });
-            if (!response.generatedImages) throw new Error("No images generated");
-            return response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
-        }, jobId);
-
-    } catch (error: any) {
-        const { status, message } = getErrorDetails(error);
-        // Fallback check using parsed details
-        if (status === 400 && (message.includes('billed users') || message.includes('billing'))) {
-            return await generateImageFallback(prompt, numberOfImages, jobId);
-        }
-        throw error;
-    }
 };
 
 export const generateVideo = async (prompt: string, startImage?: FileData, jobId?: string): Promise<string> => {
@@ -278,7 +244,7 @@ export const generateVideo = async (prompt: string, startImage?: FileData, jobId
 };
 
 // --- EDIT / TEXT FUNCTIONS ---
-
+// Helper for Flash Image Editing
 const generateGeminiEdit = async (parts: any[], numberOfImages: number, jobId?: string): Promise<{imageUrl: string, text: string}[]> => {
     return withSmartRetry(async (ai) => {
         const promises = Array.from({ length: numberOfImages }).map(async () => {
