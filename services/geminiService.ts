@@ -1,8 +1,39 @@
-
 import { GoogleGenAI, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
 import { AspectRatio, FileData } from "../types";
 import { supabase } from "./supabaseClient";
 import { updateJobApiKey } from "./jobService";
+
+// --- HELPER: Parse Error Object Robustly ---
+// Fixes issue where Vercel/Production returns different error structures
+// e.g. { error: { code: 400, message: "..." } } vs { status: 400, message: "..." }
+const getErrorDetails = (error: any) => {
+    let status = error.status || error.response?.status;
+    let message = error.message || '';
+
+    // Handle nested Google API error structure
+    if (error.error) {
+        if (error.error.code) status = error.error.code;
+        if (error.error.message) message = error.error.message;
+    }
+
+    // Try parsing message if it's a JSON string (Common in Vercel logs)
+    if (typeof message === 'string' && (message.startsWith('{') || message.startsWith('['))) {
+        try {
+            const parsed = JSON.parse(message);
+            if (parsed.error) {
+                if (parsed.error.code) status = parsed.error.code;
+                if (parsed.error.message) message = parsed.error.message;
+            }
+        } catch (e) {
+            // Not JSON, keep original message
+        }
+    }
+
+    return { 
+        status: Number(status), // Ensure it's a number
+        message: String(message) 
+    };
+};
 
 // --- HELPER: Report Bad Key to Supabase ---
 const markKeyAsExhausted = async (key: string) => {
@@ -109,14 +140,13 @@ async function withSmartRetry<T>(
             return await operation(client.ai, currentKey);
 
         } catch (error: any) {
+             const { status, message } = getErrorDetails(error);
              lastError = error;
-             const status = error.status;
-             const msg = error.message || '';
 
              // Detect Limit/Quota Errors
-             const isQuota = status === 429 || msg.includes('quota') || msg.includes('exhausted') || msg.includes('429');
-             const isBilling = status === 400 && (msg.includes('billed users') || msg.includes('billing') || msg.includes('credits'));
-             const isSystemBusy = msg === "SYSTEM_BUSY";
+             const isQuota = status === 429 || message.includes('quota') || message.includes('exhausted') || message.includes('429');
+             const isBilling = status === 400 && (message.includes('billed users') || message.includes('billing') || message.includes('credits'));
+             const isSystemBusy = message === "SYSTEM_BUSY";
 
              // Case A: DB Exhausted (No keys left)
              if (isSystemBusy) {
@@ -199,7 +229,9 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
         }, jobId);
 
     } catch (error: any) {
-        if (error.status === 400 && (error.message?.includes('billed users') || error.message?.includes('billing'))) {
+        const { status, message } = getErrorDetails(error);
+        // Fallback check using parsed details
+        if (status === 400 && (message.includes('billed users') || message.includes('billing'))) {
             return await generateImageFallback(prompt, numberOfImages, jobId);
         }
         throw error;

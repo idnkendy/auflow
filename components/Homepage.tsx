@@ -1,7 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabaseClient';
+import { UserStatus } from '../types';
 
 interface HomepageProps {
   onStart: () => void;
@@ -10,6 +10,7 @@ interface HomepageProps {
   onGoToGallery?: () => void;
   onUpgrade?: () => void;
   onOpenProfile?: () => void;
+  userStatus?: UserStatus | null;
 }
 
 const StyleIcon = () => ( <svg className="h-10 w-10 text-teal-400" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M25.0391 16.2109C27.6172 17.0312 29.6094 18.9844 30.7031 21.5625C31.7969 24.1406 31.9141 27.1094 30.9375 29.8828C29.9609 32.6562 27.9297 34.9219 25.1953 36.1719C22.4609 37.4219 19.3359 37.5391 16.5234 36.4844C13.7109 35.4297 11.5234 33.3203 10.4297 30.6641C9.33594 28.0078 9.41406 25.0391 10.625 22.3438C11.8359 19.6484 14.1016 17.5 16.9141 16.3281C19.7266 15.1562 22.8906 15.1484 25.0391 16.2109Z" stroke="currentColor" strokeWidth="2"/><path d="M15.5859 22.4219C16.9141 21.6016 18.6328 21.4062 20.1953 21.9141C21.7578 22.4219 23.0469 23.5938 23.7891 25.1172C24.5312 26.6406 24.6484 28.3984 24.1016 29.9609C23.5547 31.5234 22.3828 32.7734 20.8203 33.4375" stroke="currentColor" strokeWidth="2"/><path d="M13 3C11.3438 4.19531 10.0391 5.625 9.14062 7.25M17.8906 5.15625C18.6719 6.48438 19.1484 7.94531 19.2969 9.46875M23 3C23.8359 4.89062 24.0391 6.94531 23.5547 8.92188M28 4.25C27.6172 6.55469 26.6406 8.70312 25.1953 10.5312M15.5 12.0312C14 11.25 12.2812 10.8594 10.5 10.9688" stroke="currentColor" strokeWidth="2"/></svg> );
@@ -49,7 +50,19 @@ const ProfileIcon = () => (
     </svg>
 );
 
-const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery, onUpgrade, onOpenProfile }) => {
+const CoinIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+const ClockIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery, onUpgrade, onOpenProfile, userStatus }) => {
     return (
         <div style={{ backgroundColor: 'rgb(229, 231, 235)' }} className="text-gray-800 font-sans antialiased">
             <Header 
@@ -59,6 +72,7 @@ const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, o
                 onGoToGallery={onGoToGallery} 
                 onUpgrade={onUpgrade}
                 onOpenProfile={onOpenProfile}
+                userStatus={userStatus}
             />
             <main>
                 <Hero onStart={onStart} />
@@ -73,7 +87,7 @@ const Homepage: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, o
     );
 };
 
-const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery, onUpgrade, onOpenProfile }) => {
+const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery, onUpgrade, onOpenProfile, userStatus }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -130,55 +144,96 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                             </button>
 
                             {isDropdownOpen && (
-                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 animate-fade-in">
-                                    <div className="px-4 py-2 border-b border-gray-200">
-                                        <p className="text-sm font-semibold text-gray-800">Tài khoản của tôi</p>
+                                <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 animate-fade-in">
+                                    <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                                        <div className="mb-3">
+                                            <p className="text-sm font-bold text-gray-800 truncate">
+                                                {session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Người dùng'}
+                                            </p>
+                                            <p className="text-xs text-gray-500 truncate">
+                                                {session.user.email}
+                                            </p>
+                                        </div>
+
+                                         {/* Credit Display - Internal */}
+                                        {userStatus && (
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-sm text-yellow-700 font-semibold bg-yellow-50 px-3 py-2 rounded-md border border-yellow-200">
+                                                     <div className="flex items-center gap-2">
+                                                         <CoinIcon />
+                                                         <span>Credits khả dụng</span>
+                                                     </div>
+                                                     <span>{userStatus.credits}</span>
+                                                </div>
+                                                
+                                                {userStatus.subscriptionEnd ? (
+                                                    <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-md border ${
+                                                        userStatus.isExpired 
+                                                        ? 'bg-red-50 text-red-600 border-red-200' 
+                                                        : 'bg-blue-50 text-blue-600 border-blue-200'
+                                                    }`}>
+                                                        <ClockIcon />
+                                                        {userStatus.isExpired ? (
+                                                            <span className="font-bold">Gói tháng đã hết hạn</span>
+                                                        ) : (
+                                                            <span>Hết hạn: {new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                     <div className="text-xs text-gray-500 px-1">
+                                                        Chưa đăng ký gói tháng
+                                                     </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                     
-                                    {onOpenProfile && (
-                                        <button 
-                                            onClick={() => { 
-                                                onOpenProfile(); 
-                                                setIsDropdownOpen(false); 
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
-                                        >
-                                            <ProfileIcon />
-                                            Hồ sơ cá nhân
-                                        </button>
-                                    )}
+                                    <div className="py-1">
+                                        {onOpenProfile && (
+                                            <button 
+                                                onClick={() => { 
+                                                    onOpenProfile(); 
+                                                    setIsDropdownOpen(false); 
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
+                                            >
+                                                <ProfileIcon />
+                                                Hồ sơ cá nhân
+                                            </button>
+                                        )}
 
-                                    {onUpgrade && (
-                                        <button 
-                                            onClick={() => { 
-                                                onUpgrade(); 
-                                                setIsDropdownOpen(false); 
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
-                                        >
-                                            <StarIcon />
-                                            Nâng cấp gói
-                                        </button>
-                                    )}
+                                        {onUpgrade && (
+                                            <button 
+                                                onClick={() => { 
+                                                    onUpgrade(); 
+                                                    setIsDropdownOpen(false); 
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
+                                            >
+                                                <StarIcon />
+                                                Nâng cấp gói
+                                            </button>
+                                        )}
 
-                                    {onGoToGallery && (
-                                         <button 
-                                            onClick={() => {
-                                                onGoToGallery();
-                                                setIsDropdownOpen(false);
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
-                                        >
-                                            <GalleryIcon />
-                                            Thư viện của tôi
-                                        </button>
-                                    )}
+                                        {onGoToGallery && (
+                                             <button 
+                                                onClick={() => {
+                                                    onGoToGallery();
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 flex items-center gap-2"
+                                            >
+                                                <GalleryIcon />
+                                                Thư viện của tôi
+                                            </button>
+                                        )}
+                                    </div>
                                     
                                     <div className="border-t border-gray-200 my-1"></div>
                                     
                                     <button 
                                         onClick={handleSignOut}
-                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-b-lg"
                                     >
                                         <LogoutIcon />
                                         Đăng xuất

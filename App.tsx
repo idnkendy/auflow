@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './services/supabaseClient';
@@ -70,35 +69,30 @@ const App: React.FC = () => {
 
   // Logic xác thực quan trọng: Xử lý OAuth redirect và session persistence
   useEffect(() => {
-    // 1. Kiểm tra session ngay khi tải trang (xử lý URL hash từ Google Redirect)
     const initSession = async () => {
         setLoadingSession(true);
+        // supabase.auth.getSession() automatically parses the URL hash for session data
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         
         if (initialSession) {
             setSession(initialSession);
-            setView('app'); // Chuyển ngay vào App nếu tìm thấy session
+            setView('app'); 
         }
         setLoadingSession(false);
     };
 
     initSession();
 
-    // 2. Lắng nghe thay đổi trạng thái (Đăng nhập, Đăng xuất, Token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-          // Bất cứ khi nào có session (login thành công), vào App ngay
           setView('app');
-      } else {
-          // Nếu logout, có thể về homepage (tùy chọn)
-          // setView('homepage'); 
       }
       setLoadingSession(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []); // Chỉ chạy 1 lần khi mount
+  }, []); 
 
   // Define fetchUserStatus using useCallback to be stable
   const fetchUserStatus = useCallback(async () => {
@@ -173,7 +167,6 @@ const App: React.FC = () => {
       if (session) {
           setView('app');
           setActiveTool(Tool.Pricing);
-          // Default to 'plans' tab when upgrading
           handleToolStateChange(Tool.Pricing, { activeTab: 'plans' });
       }
   }
@@ -182,11 +175,9 @@ const App: React.FC = () => {
       if (session) {
           setView('app');
           setActiveTool(Tool.Pricing);
-          // Default to 'profile' tab when clicking profile
           handleToolStateChange(Tool.Pricing, { activeTab: 'profile' });
       }
   }
-
 
   const handleSendToViewSync = (image: FileData) => {
      handleToolStateChange(Tool.ViewSync, {
@@ -204,7 +195,6 @@ const App: React.FC = () => {
         customPrompt: prompt, // Set the prompt from suggester
         resultImages: [],
         error: null,
-        // Reset other options to ensure a clean state
         selectedPerspective: 'default',
         selectedAtmosphere: 'default',
         selectedFraming: 'none',
@@ -396,6 +386,7 @@ const App: React.FC = () => {
                 onGoToGallery={handleOpenGallery}
                 onUpgrade={handleUpgrade}
                 onOpenProfile={handleOpenProfile}
+                userStatus={userStatus}
             />
         );
     }
