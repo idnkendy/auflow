@@ -49,7 +49,7 @@ const App: React.FC = () => {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         if (currentSession) {
             setSession(currentSession);
-            setView('app');
+            if (view !== 'app') setView('app');
         }
     };
 
@@ -60,7 +60,7 @@ const App: React.FC = () => {
         window.removeEventListener('focus', handleFocus);
         window.removeEventListener('visibilitychange', handleFocus);
     };
-  }, []);
+  }, [view]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -68,18 +68,37 @@ const App: React.FC = () => {
     root.classList.add(theme);
   }, [theme]);
 
+  // Logic xác thực quan trọng: Xử lý OAuth redirect và session persistence
   useEffect(() => {
-    setLoadingSession(true);
+    // 1. Kiểm tra session ngay khi tải trang (xử lý URL hash từ Google Redirect)
+    const initSession = async () => {
+        setLoadingSession(true);
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        
+        if (initialSession) {
+            setSession(initialSession);
+            setView('app'); // Chuyển ngay vào App nếu tìm thấy session
+        }
+        setLoadingSession(false);
+    };
+
+    initSession();
+
+    // 2. Lắng nghe thay đổi trạng thái (Đăng nhập, Đăng xuất, Token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      setLoadingSession(false);
-      if (session && view === 'auth') {
+      if (session) {
+          // Bất cứ khi nào có session (login thành công), vào App ngay
           setView('app');
+      } else {
+          // Nếu logout, có thể về homepage (tùy chọn)
+          // setView('homepage'); 
       }
+      setLoadingSession(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [view]);
+  }, []); // Chỉ chạy 1 lần khi mount
 
   // Define fetchUserStatus using useCallback to be stable
   const fetchUserStatus = useCallback(async () => {
@@ -123,6 +142,7 @@ const App: React.FC = () => {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setView('homepage');
+    setSession(null);
   };
   
   const handleGoHome = () => {
