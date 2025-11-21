@@ -31,11 +31,12 @@ import { initialToolStates, ToolStates } from './state/toolState';
 import Homepage from './components/Homepage';
 import AuthPage from './components/auth/AuthPage';
 import Spinner from './components/Spinner';
+import PublicPricing from './components/PublicPricing';
 import { getUserStatus, deductCredits } from './services/paymentService';
 import * as jobService from './services/jobService';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'homepage' | 'auth' | 'app'>('homepage');
+  const [view, setView] = useState<'homepage' | 'auth' | 'app' | 'pricing'>('homepage');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -186,6 +187,9 @@ const App: React.FC = () => {
           setView('app');
           setActiveTool(Tool.Pricing);
           handleToolStateChange(Tool.Pricing, { activeTab: 'plans' });
+      } else {
+          // If not logged in, go to public pricing page
+          setView('pricing');
       }
   }
   
@@ -448,8 +452,12 @@ const App: React.FC = () => {
   if (view === 'auth') {
     return <AuthPage onGoHome={() => setView('homepage')} initialMode={authMode} />;
   }
+
+  if (view === 'pricing') {
+      return <PublicPricing onGoHome={() => setView('homepage')} onAuthNavigate={handleAuthNavigate} />;
+  }
   
-  return <Homepage onStart={handleStartDesigning} onAuthNavigate={handleAuthNavigate} />;
+  return <Homepage onStart={handleStartDesigning} onAuthNavigate={handleAuthNavigate} onNavigateToPricing={() => setView('pricing')} />;
 };
 
 export default App;

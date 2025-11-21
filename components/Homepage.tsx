@@ -13,6 +13,7 @@ interface HomepageProps {
   onOpenProfile?: () => void;
   userStatus?: UserStatus | null;
   onNavigateToTool?: (tool: Tool) => void;
+  onNavigateToPricing?: () => void;
 }
 
 // --- ICONS (SVG from design) ---
@@ -47,7 +48,7 @@ const Homepage: React.FC<HomepageProps> = (props) => {
                                 <FeatureShowcase onStart={props.onStart} onNavigateToTool={props.onNavigateToTool} />
                                 <CTA onStart={props.onStart} />
                             </main>
-                            <Footer onStart={props.onStart} />
+                            <Footer onStart={props.onStart} onNavigateToPricing={props.onNavigateToPricing} />
                         </div>
                     </div>
                 </div>
@@ -57,7 +58,7 @@ const Homepage: React.FC<HomepageProps> = (props) => {
 };
 
 // --- HEADER ---
-const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery, onOpenProfile, userStatus, onNavigateToTool }) => {
+const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery, onOpenProfile, userStatus, onNavigateToTool, onNavigateToPricing }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -94,6 +95,9 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
             <div className="hidden md:flex flex-1 justify-end gap-8 items-center">
                 <div className="flex items-center gap-9">
                     <button onClick={() => handleNavClick(Tool.ArchitecturalRendering)} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Tính năng</button>
+                    {!session && onNavigateToPricing && (
+                        <button onClick={onNavigateToPricing} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Bảng giá</button>
+                    )}
                     {session && (
                         <button onClick={onGoToGallery} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Thư viện</button>
                     )}
@@ -297,7 +301,7 @@ const CTA: React.FC<{onStart: () => void}> = ({ onStart }) => {
 };
 
 // --- FOOTER ---
-const Footer: React.FC<{onStart: () => void}> = ({ onStart }) => {
+const Footer: React.FC<{onStart: () => void, onNavigateToPricing?: () => void}> = ({ onStart, onNavigateToPricing }) => {
     return (
         <footer className="mt-24 border-t border-[#302839] py-12 px-4">
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
@@ -312,7 +316,9 @@ const Footer: React.FC<{onStart: () => void}> = ({ onStart }) => {
                 <div className="flex flex-col gap-4">
                     <h3 className="font-bold text-white">Sản phẩm</h3>
                     <button onClick={onStart} className="text-gray-400 hover:text-white text-left text-sm">Tính năng</button>
-                    <button onClick={onStart} className="text-gray-400 hover:text-white text-left text-sm">Bảng giá</button>
+                    {onNavigateToPricing && (
+                        <button onClick={onNavigateToPricing} className="text-gray-400 hover:text-white text-left text-sm">Bảng giá</button>
+                    )}
                     <button onClick={onStart} className="text-gray-400 hover:text-white text-left text-sm">Thư viện</button>
                 </div>
                 
