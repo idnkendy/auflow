@@ -388,16 +388,16 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
             {previewImage && <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
             
             <div className="flex flex-col gap-2">
-                <h2 className="text-3xl font-bold text-text-primary dark:text-white">AI Render Kiến trúc</h2>
-                <p className="text-text-secondary dark:text-gray-400">Biến phác thảo thành hiện thực hoặc tạo ý tưởng mới từ mô tả văn bản.</p>
+                <h2 className="text-2xl md:text-3xl font-bold text-text-primary dark:text-white">AI Render Kiến trúc</h2>
+                <p className="text-sm md:text-base text-text-secondary dark:text-gray-400">Biến phác thảo thành hiện thực hoặc tạo ý tưởng mới từ mô tả văn bản.</p>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
                 
                 {/* --- LEFT COLUMN: CONFIGURATION --- */}
-                <div className="lg:col-span-5 space-y-6">
+                <div className="lg:col-span-5 space-y-4 md:space-y-6">
                     {/* Prompt Input - Top Priority */}
-                    <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div className="bg-white dark:bg-gray-800 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                         <label htmlFor="custom-prompt-architectural" className="block text-sm font-bold text-text-primary dark:text-white mb-2">
                             Mô tả ý tưởng (Prompt)
                         </label>
@@ -405,7 +405,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                             <textarea
                                 id="custom-prompt-architectural"
                                 rows={4}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:border-accent focus:outline-none transition-all resize-none"
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:border-accent focus:outline-none transition-all resize-none text-sm md:text-base"
                                 placeholder="VD: Một ngôi nhà phố hiện đại, mặt tiền 5m, nhiều cây xanh, cửa kính lớn, ánh sáng tự nhiên..."
                                 value={customPrompt}
                                 onChange={(e) => onStateChange({ customPrompt: e.target.value })}
@@ -418,13 +418,13 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                                 title="Tạo prompt từ ảnh"
                             >
                                 {isGeneratingPrompt ? <Spinner /> : <SparklesIcon />}
-                                <span>Auto Prompt</span>
+                                <span className="hidden sm:inline">Auto Prompt</span>
                             </button>
                         </div>
                     </div>
 
                     {/* Image Inputs */}
-                    <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-border-color dark:border-gray-700 space-y-5">
+                    <div className="bg-white dark:bg-gray-800 p-4 md:p-5 rounded-xl shadow-sm border border-border-color dark:border-gray-700 space-y-5">
                         <div>
                             <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Ảnh Phác Thảo (Sketch)</label>
                             <ImageUpload onFileSelect={handleFileSelect} previewUrl={sourceImage?.objectURL}/>
@@ -436,9 +436,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                     </div>
 
                     {/* Advanced Options (Accordion Style) */}
-                    <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-border-color dark:border-gray-700">
+                    <div className="bg-white dark:bg-gray-800 p-4 md:p-5 rounded-xl shadow-sm border border-border-color dark:border-gray-700">
                         <h3 className="text-sm font-bold text-text-primary dark:text-white mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">Tinh chỉnh chi tiết</h3>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <OptionSelector id="building-type-selector" label="Loại công trình" options={buildingTypeOptions} value={buildingType} onChange={handleBuildingTypeChange} disabled={isLoading} />
                             <OptionSelector id="style-selector" label="Phong cách" options={styleOptions} value={style} onChange={handleStyleChange} disabled={isLoading} />
                             <OptionSelector id="context-selector" label="Bối cảnh" options={contextOptions} value={context} onChange={handleContextChange} disabled={isLoading} />
@@ -448,8 +448,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                     </div>
                     
                     {/* Output Settings */}
-                    <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-border-color dark:border-gray-700">
-                        <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white dark:bg-gray-800 p-4 md:p-5 rounded-xl shadow-sm border border-border-color dark:border-gray-700">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({numberOfImages: val})} disabled={isLoading || isUpscaling} />
                             <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({aspectRatio: val})} disabled={isLoading || isUpscaling} />
                         </div>
@@ -478,7 +478,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
 
                 {/* --- RIGHT COLUMN: PREVIEW & RESULTS --- */}
                 <div className="lg:col-span-7 space-y-6">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <h3 className="text-lg font-bold text-text-primary dark:text-white flex items-center gap-2">
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-accent" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
                              Kết quả
@@ -486,7 +486,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                         
                         {/* Action Buttons for Result */}
                         {resultImages.length === 1 && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {!upscaledImage && (
                                     <button
                                         onClick={handleUpscale}
@@ -542,11 +542,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                         )}
                         {!isLoading && resultImages.length === 0 && (
                             <div className="text-center p-8 opacity-50">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 md:h-20 md:w-20 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                                <p className="text-gray-500 dark:text-gray-400 text-lg">Kết quả render sẽ xuất hiện ở đây</p>
-                                <p className="text-sm text-gray-400 dark:text-gray-500">Hãy nhập mô tả hoặc tải ảnh lên để bắt đầu</p>
+                                <p className="text-gray-500 dark:text-gray-400 text-base md:text-lg">Kết quả render sẽ xuất hiện ở đây</p>
+                                <p className="text-xs md:text-sm text-gray-400 dark:text-gray-500">Hãy nhập mô tả hoặc tải ảnh lên để bắt đầu</p>
                             </div>
                         )}
                     </div>

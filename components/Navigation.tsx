@@ -61,7 +61,7 @@ const RulerIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
 );
 const FengShuiIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m14.657-6.657l-1.414 1.414M6.757 17.243l-1.414 1.414m12.728 0l-1.414-1.414M6.757 6.757l-1.414-1.414" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15l-3-6 3 6 3-6-3 6z" /></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m14.657-6.657l-1.414 1.414M6.757 17.243l-1.414 1.414m12.728 0l-1.414-1.414M6.757 6.757l-1.414-1.414" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15l-3-6 3 6 3-6-3 6z" /></svg>
 );
 const PencilAltIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -70,6 +70,8 @@ const PencilAltIcon = () => (
 interface NavigationProps {
   activeTool: Tool;
   setActiveTool: (tool: Tool) => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 const mainNavItems = [
@@ -104,7 +106,7 @@ const utilityToolsGroup = {
 
 const historyItem = { tool: Tool.History, label: 'Lịch sử', icon: <HistoryIcon /> };
 
-const Navigation: React.FC<NavigationProps> = ({ activeTool, setActiveTool }) => {
+const Navigation: React.FC<NavigationProps> = ({ activeTool, setActiveTool, isMobileOpen = false, onCloseMobile }) => {
     const isGroupActive = utilityToolsGroup.tools.some(item => item.tool === activeTool);
     const [isGroupOpen, setIsGroupOpen] = useState(isGroupActive);
 
@@ -118,60 +120,86 @@ const Navigation: React.FC<NavigationProps> = ({ activeTool, setActiveTool }) =>
         <button
             key={item.tool}
             onClick={() => setActiveTool(item.tool)}
-            className={`group flex items-center w-full gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 text-sm font-medium mb-1 ${
+            className={`group flex items-center w-full gap-3 px-4 py-3 rounded-full lg:rounded-lg text-left transition-all duration-200 text-sm font-medium mb-1 ${
               activeTool === item.tool
-                ? 'bg-accent-500 text-white shadow-lg shadow-accent-500/25'
-                : 'text-text-secondary dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-text-primary dark:hover:text-gray-100'
+                ? 'bg-[#7f13ec] text-white shadow-lg shadow-[#7f13ec]/25'
+                : 'text-gray-400 hover:bg-[#302839] hover:text-white'
             }`}
           >
-            <span className={`${activeTool === item.tool ? 'text-white' : 'text-gray-400 group-hover:text-accent-500'} transition-colors`}>
+            <span className={`${activeTool === item.tool ? 'text-white' : 'text-gray-400 group-hover:text-[#7f13ec]'} transition-colors`}>
                 {item.icon}
             </span>
-            <span className="hidden md:inline truncate">{item.label}</span>
+            <span className="truncate">{item.label}</span>
           </button>
     );
 
   return (
-    <aside className="w-full md:w-64 flex-shrink-0 bg-surface/80 dark:bg-dark-bg/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/20 dark:border-gray-700 p-4 self-start flex flex-col h-full overflow-y-auto scrollbar-hide transition-all duration-300">
-      <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 pb-3 hidden md:block">Công cụ chính</h2>
-      <nav className="flex flex-row md:flex-col flex-wrap gap-1">
-        {mainNavItems.map(item => renderItem(item))}
+    <>
+      {/* Backdrop for Mobile */}
+      {isMobileOpen && (
+        <div 
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+            onClick={onCloseMobile}
+        />
+      )}
 
-        {/* Divider for mobile wrap fix */}
-        <div className="w-full md:h-4"></div>
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-72 bg-[#121212]/95 backdrop-blur-xl border-r border-[#302839]
+        transform transition-transform duration-300 ease-in-out
+        md:translate-x-0 md:static md:w-64 md:bg-[#121212]/80 md:border md:rounded-2xl md:m-6 md:h-[calc(100vh-96px)]
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="h-full flex flex-col p-4 overflow-y-auto scrollbar-hide">
+            <div className="flex justify-between items-center md:hidden mb-4 px-2">
+                <h2 className="text-lg font-bold text-white">Menu</h2>
+                <button onClick={onCloseMobile} className="text-gray-400 hover:text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
 
-        <div className="w-full">
-             <button
-                onClick={() => setIsGroupOpen(!isGroupOpen)}
-                className={`flex items-center justify-between w-full gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 text-sm font-medium mb-1 ${
-                isGroupActive
-                    ? 'bg-gray-100 dark:bg-gray-800 text-text-primary dark:text-white'
-                    : 'text-text-secondary dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-text-primary dark:hover:text-gray-100'
-                }`}
-            >
-                <div className="flex items-center gap-3">
-                    <span className="text-gray-400 group-hover:text-accent-500">
-                        {utilityToolsGroup.icon}
-                    </span>
-                    <span className="hidden md:inline">{utilityToolsGroup.label}</span>
+            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-4 pb-3 hidden md:block">Công cụ chính</h2>
+            
+            <nav className="flex-1 space-y-1">
+                {mainNavItems.map(item => renderItem(item))}
+
+                <div className="w-full md:h-4"></div>
+
+                <div className="w-full">
+                    <button
+                        onClick={() => setIsGroupOpen(!isGroupOpen)}
+                        className={`flex items-center justify-between w-full gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 text-sm font-medium mb-1 ${
+                        isGroupActive
+                            ? 'bg-[#191919] text-white'
+                            : 'text-gray-400 hover:bg-[#302839] hover:text-white'
+                        }`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className="text-gray-400 group-hover:text-[#7f13ec]">
+                                {utilityToolsGroup.icon}
+                            </span>
+                            <span className="truncate">{utilityToolsGroup.label}</span>
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform duration-200 ${isGroupOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isGroupOpen ? 'max-h-[1000px] opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
+                        <div className="pl-2 space-y-1">
+                            {utilityToolsGroup.tools.map(item => renderItem(item))}
+                        </div>
+                    </div>
                 </div>
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 hidden md:inline transition-transform duration-200 ${isGroupOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-
-            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isGroupOpen ? 'max-h-[1000px] opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
-                <div className="md:pl-2 flex flex-row md:flex-col flex-wrap gap-1">
-                    {utilityToolsGroup.tools.map(item => renderItem(item))}
-                </div>
+            </nav>
+            
+            <div className="w-full mt-auto pt-4 border-t border-[#302839]">
+                {renderItem(historyItem)}
             </div>
         </div>
-        
-        <div className="w-full mt-auto pt-4 border-t border-gray-200 dark:border-gray-700/50">
-            {renderItem(historyItem)}
-        </div>
-      </nav>
-    </aside>
+      </aside>
+    </>
   );
 };
 

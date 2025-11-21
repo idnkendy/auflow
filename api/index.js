@@ -15,7 +15,6 @@ export default async function handler(request, response) {
     const body = request.body || {};
 
     // --- CONFIGURATION ---
-    // Hardcoded credentials as provided
     const HEADERS = {
         'accept': '*/*',
         'authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImtlbmR5IiwiYXVkIjoiaHR0cHM6Ly9jb2luMTQubmV0IiwiaXNzIjoiY29pbjE0LWF1dGgiLCJpYXQiOjE3NjM2NDE3ODcsImV4cCI6MTc2NDI0NjU4N30.gbOb2JARNjZrBKYPfLCnT4tXeYlt9K1yj4p0Ixfgk7o',
@@ -39,12 +38,15 @@ export default async function handler(request, response) {
             
             // Upload Image if provided
             if (image) {
-                 // If image comes as data URI, we might need to pass it as is or strip header.
-                 // The external API seems to expect a base64 string (possibly with data: prefix or not, depending on their implementation)
-                 // We'll assume the frontend sends the full string which works for most "base64Image" fields.
+                 // FIX: Strip "data:image/xyz;base64," prefix if present
+                 let cleanBase64 = image;
+                 if (image.includes(',')) {
+                     cleanBase64 = image.split(',')[1];
+                 }
+
                  const payload = {
                     'rowId': 1,
-                    'base64Image': image, 
+                    'base64Image': cleanBase64, 
                     'type': 'start'
                  };
                  
@@ -57,7 +59,8 @@ export default async function handler(request, response) {
                  
                  if (!upRes.ok) {
                      const errText = await upRes.text();
-                     throw new Error(`Upload failed (${upRes.status}): ${errText}`);
+                     console.error("Upload Error Body:", errText);
+                     throw new Error(`Upload failed (${upRes.status}): ${errText.substring(0, 200)}`);
                  }
                  
                  const upData = await upRes.json();
@@ -90,13 +93,17 @@ export default async function handler(request, response) {
 
             if (!triggerRes.ok) {
                  const errText = await triggerRes.text();
-                 throw new Error(`Trigger failed (${triggerRes.status}): ${errText}`);
+                 console.error("Trigger Error Body:", errText);
+                 throw new Error(`Trigger failed (${triggerRes.status}): ${errText.substring(0, 200)}`);
             }
             
             const triggerData = await triggerRes.json();
             const opItem = triggerData[0]?.operations?.[0];
             
-            if (!opItem) throw new Error("Invalid trigger response structure from Agent");
+            if (!opItem) {
+                console.error("Invalid Trigger Data:", JSON.stringify(triggerData));
+                throw new Error("Invalid trigger response structure from Agent");
+            }
             
             return response.status(200).json({
                 task_id: opItem.operation.name,
@@ -133,7 +140,10 @@ export default async function handler(request, response) {
                 body: JSON.stringify(json_data)
             });
 
-            if (!checkRes.ok) throw new Error(`Check status failed: ${checkRes.status}`);
+            if (!checkRes.ok) {
+                const errText = await checkRes.text();
+                throw new Error(`Check status failed: ${checkRes.status} - ${errText.substring(0, 100)}`);
+            }
             
             const checkData = await checkRes.json();
             const opItem = checkData[0]?.operations?.[0];

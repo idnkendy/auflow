@@ -12,80 +12,69 @@ const CheckIcon = () => (
 );
 
 const QRCodeIcon = () => (
-    <svg className="w-40 h-40 text-gray-800 bg-white p-2 rounded-lg" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+    <svg className="w-32 h-32 text-gray-800 bg-white p-2 rounded-lg" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
         <path fill="currentColor" d="M128 256a128 128 0 1 1 128-128 128 128 0 0 1-128 128Z"/>
         <path fill="#fff" d="M128 0a128 128 0 0 0 0 256V0Z"/>
-        <path fill="currentColor" d="M188 68v40h-40V68ZM88 68v40H48V68ZM68 48H48v20h20Zm20 0V28H68v20Zm100 0h20v20h-20Zm-20 20V48h20v20Zm0 0h20v20h-20Zm-20-20H88v20h80ZM68 88H48v20h20Zm20 0V68H68v20Zm-20 20H48v20h20Zm0 20H48v20h20Zm0 20H48v20h20Zm0 20H48v20h20Zm20-20H68v20h20Zm20 0H88v20h20Zm-20-20H68v20h20Zm100 80v-20h20v20Zm-20-20v-20h20v20Zm0-20v-20h20v20Zm0-20v-20h20v20Zm-20 60v-20h20v20Zm0-20v-20h20v20Zm-20 0v-20h20v20Zm-20 0v-20h20v20Zm-20 0v-20h20v20Zm0-20v-20h20v20Zm20 20v20h20v-20Zm40 0v20h20v-20Zm-60-60H88v20h20Zm20 0h20v20h-20Zm0 20H88v20h40Zm0 20h20v20h-20Zm-20 20H88v20h20Zm100-20h-20v20h20Zm-20-20h-20v20h20Zm0-20h-20v20h20Z"/>
+        <path fill="currentColor" d="M188 68v40h-40V68ZM88 68v40H48V68ZM68 48H48v20h20Zm20 0V28H68v20Zm100 0h20v20h-20Zm-20 20V48h20v20Zm0 0h20v20h-20Zm-20-20H88v20h80ZM68 88H48v20h20Zm20 0V68H68v20Zm-20 20H48v20h20Zm0 20H48v20h20Zm0 20H48v20h20Zm0 20H48v20h20Zm20-20H68v20h20Zm20 0H88v20h20Zm-20-20H68v20h20Zm100 80v-20h20v20Zm-20-20v-20h20v20Zm0-20v-20h20v20Zm0-20v-20h20v20Zm-20 60v-20h20v20Zm0-20v-20h20v20Zm-20 0v-20h20v20Zm-20 0v-20h20v20Zm20 20v20h20v-20Zm40 0v20h20v-20Zm-60-60H88v20h20Zm20 0h20v20h-20Zm0 20H88v20h40Zm0 20h20v20h-20Zm-20 20H88v20h20Zm100-20h-20v20h20Zm-20-20h-20v20h20Zm0-20h-20v20h20Z"/>
     </svg>
 );
 
-const subscriptions: PricingPlan[] = [
+const plans: PricingPlan[] = [
     {
-        id: 'sub_basic',
-        name: 'Cơ Bản',
-        price: 199000,
-        currency: 'đ/tháng',
-        features: ['50 lượt tạo ảnh/tháng', '5 lượt tạo video/tháng', 'Chất lượng tiêu chuẩn', 'Hỗ trợ qua email'],
+        id: 'plan_starter',
+        name: 'Starter',
+        price: 299000,
+        currency: 'đ',
+        features: [
+            'Tổng 3,000 Credits',
+            'Gói tiêu chuẩn',
+            'Hạn sử dụng: 1 Tháng',
+            'Truy cập tất cả công cụ AI'
+        ],
         type: 'subscription',
-        description: 'Lý tưởng cho người mới bắt đầu và các dự án nhỏ.'
+        credits: 3000,
+        durationMonths: 1,
+        description: 'Gói trải nghiệm cho người mới bắt đầu.'
     },
     {
-        id: 'sub_advanced',
-        name: 'Nâng Cao',
+        id: 'plan_pro',
+        name: 'Pro',
         price: 599000,
-        currency: 'đ/tháng',
-        features: ['250 lượt tạo ảnh/tháng', '25 lượt tạo video/tháng', 'Chất lượng cao (HD & Full HD)', 'Ưu tiên hàng đợi xử lý', 'Hỗ trợ ưu tiên qua Zalo'],
+        currency: 'đ',
+        features: [
+            'Tổng 7,000 Credits',
+            '(6,000 Gốc + 1,000 Tặng)',
+            'Tăng thêm ~17% Credits',
+            'Hạn sử dụng: 2 Tháng',
+            'Truy cập tất cả công cụ AI'
+        ],
         type: 'subscription',
+        credits: 7000,
         highlight: true,
-        description: 'Dành cho kiến trúc sư và nhà thiết kế chuyên nghiệp.'
+        durationMonths: 2,
+        description: 'Lựa chọn tốt nhất cho Kiến trúc sư & Freelancer.'
     },
     {
-        id: 'sub_vip',
-        name: 'VIP',
-        price: 1000000,
-        currency: 'đ/tháng',
-        features: ['Không giới hạn tạo ảnh', '50 lượt tạo video', 'Chất lượng cao nhất (2K & 4K)', 'Hàng đợi xử lý riêng', 'Hỗ trợ chuyên biệt 24/7', 'Truy cập sớm tính năng mới'],
+        id: 'plan_ultra',
+        name: 'Ultra',
+        price: 1999000,
+        currency: 'đ',
+        features: [
+            'Tổng 25,000 Credits',
+            '(20,000 Gốc + 5,000 Tặng)',
+            'Tăng thêm 25% Credits',
+            'Hạn sử dụng: 3 Tháng',
+            'Chi phí rẻ nhất/credit',
+            'Hỗ trợ ưu tiên'
+        ],
         type: 'subscription',
-        description: 'Giải pháp toàn diện cho các studio và doanh nghiệp lớn.'
-    }
-];
-
-const creditPacks: PricingPlan[] = [
-    {
-        id: 'cred_starter',
-        name: 'Gói Khởi động',
-        price: 50000,
-        currency: 'đ',
-        features: ['100 Credits', 'Không hết hạn', 'Dùng cho mọi tính năng'],
-        type: 'credit',
-        credits: 100,
-        description: 'Dành cho nhu cầu phát sinh.'
-    },
-    {
-        id: 'cred_pro',
-        name: 'Gói Chuyên nghiệp',
-        price: 200000,
-        currency: 'đ',
-        features: ['500 Credits', 'Tiết kiệm 20%', 'Không hết hạn'],
-        type: 'credit',
-        credits: 500,
-        highlight: true,
-        description: 'Gói phổ biến nhất cho Freelancer.'
-    },
-    {
-        id: 'cred_studio',
-        name: 'Gói Studio',
-        price: 800000,
-        currency: 'đ',
-        features: ['2500 Credits', 'Tiết kiệm 35%', 'Không hết hạn', 'Hỗ trợ 1-1 setup'],
-        type: 'credit',
-        credits: 2500,
-        description: 'Dành cho team và dự án lớn.'
+        credits: 25000,
+        durationMonths: 3,
+        description: 'Giải pháp tối ưu cho Studio và Doanh nghiệp.'
     }
 ];
 
 const Checkout: React.FC = () => {
-    const [billingMode, setBillingMode] = useState<'subscription' | 'credits'>('subscription');
     const [isProcessing, setIsProcessing] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
     const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -100,9 +89,6 @@ const Checkout: React.FC = () => {
             const { data: { user } } = await supabase.auth.getUser();
             const userId = user?.id || 'guest';
 
-            // Use payment service
-            // In a real app, you would likely open a modal or redirect here first
-            // For this demo, we simulate a direct QR/Card process
             const result = await paymentService.processPayment(userId, plan, 'qr');
             setPaymentStatus('success');
             setStatusMessage(result.message);
@@ -119,59 +105,48 @@ const Checkout: React.FC = () => {
         setSelectedPlan(null);
     };
 
-    const activePlans = billingMode === 'subscription' ? subscriptions : creditPacks;
-
     return (
-        <div className="pb-10">
-            <h2 className="text-3xl font-bold text-text-primary dark:text-white mb-2 text-center">Thanh toán & Nâng cấp</h2>
-            <p className="text-text-secondary dark:text-gray-300 mb-8 text-center max-w-2xl mx-auto">Chọn gói cước phù hợp nhất với nhu cầu thiết kế của bạn.</p>
+        <div className="pb-6">
+            <h2 className="text-xl font-bold text-text-primary dark:text-white mb-2 text-center">Bảng Giá & Gói Cước</h2>
+            <p className="text-text-secondary dark:text-gray-300 mb-6 text-center text-sm max-w-xl mx-auto">Chọn gói cước phù hợp để sở hữu Credits và sáng tạo không giới hạn.</p>
 
-            {/* Toggle Switch */}
-            <div className="flex justify-center mb-10">
-                <div className="bg-main-bg dark:bg-gray-800 p-1 rounded-full inline-flex shadow-inner">
-                    <button
-                        onClick={() => setBillingMode('subscription')}
-                        className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${billingMode === 'subscription' ? 'bg-accent text-white shadow-md' : 'text-text-secondary dark:text-gray-400 hover:text-accent'}`}
-                    >
-                        Thuê bao tháng
-                    </button>
-                    <button
-                        onClick={() => setBillingMode('credits')}
-                        className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${billingMode === 'credits' ? 'bg-accent text-white shadow-md' : 'text-text-secondary dark:text-gray-400 hover:text-accent'}`}
-                    >
-                        Mua Credits (Trả trước)
-                    </button>
-                </div>
-            </div>
-
-            {/* Pricing Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 items-start">
-                {activePlans.map((plan) => (
+            {/* Pricing Cards - Optimized Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-8 items-stretch">
+                {plans.map((plan) => (
                     <div 
                         key={plan.id}
-                        className={`relative flex flex-col h-full p-8 rounded-xl transition-all duration-300 border ${
+                        className={`relative flex flex-col h-full p-6 rounded-xl transition-all duration-300 border break-words ${
                             plan.highlight 
-                                ? 'bg-accent/5 dark:bg-accent/10 border-accent shadow-xl shadow-accent/10 scale-105 z-10' 
+                                ? 'bg-accent/5 dark:bg-accent/10 border-accent shadow-xl shadow-accent/10 z-10' 
                                 : 'bg-main-bg/50 dark:bg-dark-bg/50 border-border-color dark:border-gray-700 hover:border-accent/50'
                         }`}
                     >
                         {plan.highlight && (
-                            <span className="absolute top-0 right-8 -mt-3 bg-accent text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
-                                PHỔ BIẾN NHẤT
-                            </span>
+                            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                                <span className="bg-accent text-white text-[10px] uppercase font-bold px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
+                                    Khuyên Dùng
+                                </span>
+                            </div>
                         )}
-                        <h3 className="text-2xl font-bold text-text-primary dark:text-white">{plan.name}</h3>
-                        <p className="text-text-secondary dark:text-gray-300 mt-2 text-sm h-10">{plan.description}</p>
-                        <div className="my-6">
-                            <span className="text-4xl font-bold text-text-primary dark:text-white">{new Intl.NumberFormat('vi-VN').format(plan.price)}</span>
-                            <span className="text-lg font-medium text-text-secondary dark:text-gray-400 ml-1">{plan.currency}</span>
+                        <div className="text-center">
+                            <h3 className="text-xl font-bold text-text-primary dark:text-white truncate">{plan.name}</h3>
+                            <div className="my-3 flex justify-center items-baseline flex-wrap">
+                                <span className="text-3xl font-bold text-text-primary dark:text-white">{new Intl.NumberFormat('vi-VN').format(plan.price)}</span>
+                                <span className="text-sm font-medium text-text-secondary dark:text-gray-400 ml-1">{plan.currency}</span>
+                            </div>
+                            <p className="text-text-secondary dark:text-gray-400 text-xs min-h-[2rem] px-2">{plan.description}</p>
                         </div>
                         
-                        <ul className="space-y-3 text-text-secondary dark:text-gray-200 mb-8 flex-grow text-sm">
+                        <div className="my-4 bg-gray-100 dark:bg-gray-700/30 p-3 rounded-lg text-center border border-gray-200 dark:border-gray-600">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Tổng nhận được</p>
+                            <p className="text-xl font-bold text-accent">{new Intl.NumberFormat('vi-VN').format(plan.credits || 0)} Credits</p>
+                        </div>
+
+                        <ul className="space-y-2 text-text-secondary dark:text-gray-300 mb-6 flex-grow text-sm whitespace-normal">
                             {plan.features.map((feature, idx) => (
-                                <li key={idx} className="flex items-start gap-3">
+                                <li key={idx} className="flex items-start gap-2">
                                     <CheckIcon />
-                                    <span>{feature}</span>
+                                    <span className="text-xs sm:text-sm leading-tight">{feature}</span>
                                 </li>
                             ))}
                         </ul>
@@ -179,35 +154,47 @@ const Checkout: React.FC = () => {
                         <button 
                             onClick={() => handleBuyClick(plan)}
                             disabled={isProcessing}
-                            className={`w-full font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center gap-2 ${
+                            className={`w-full font-bold py-2.5 px-4 rounded-lg transition-colors flex justify-center items-center gap-2 text-sm ${
                                 plan.highlight 
                                     ? 'bg-accent hover:bg-accent-600 text-white shadow-lg shadow-accent/30' 
                                     : 'bg-gray-600 hover:bg-gray-700 text-white'
                             }`}
                         >
-                            {billingMode === 'subscription' ? 'Đăng ký ngay' : 'Mua ngay'}
+                            Đăng ký ngay
                         </button>
                     </div>
                 ))}
             </div>
 
-            {/* Payment Info / QR Section (Static for reference) */}
-            <div className="bg-main-bg/50 dark:bg-dark-bg/50 rounded-2xl shadow-lg p-8 border border-border-color dark:border-gray-700 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-12">
-                <div className="flex-shrink-0 text-center">
-                    <p className="text-text-secondary dark:text-gray-300 mb-2 text-sm font-medium">Quét mã để thanh toán thủ công (nếu cần)</p>
-                    <QRCodeIcon />
-                </div>
-                <div className="w-full max-w-md">
-                     <h3 className="text-xl font-bold text-text-primary dark:text-white mb-4">Thông tin chuyển khoản trực tiếp</h3>
-                     <div className="space-y-2 text-base">
-                        <p className="text-text-secondary dark:text-gray-300 flex justify-between"><span>Ngân hàng:</span> <span className="font-semibold text-text-primary dark:text-gray-100">MB Bank</span></p>
-                        <p className="text-text-secondary dark:text-gray-300 flex justify-between"><span>Chủ tài khoản:</span> <span className="font-semibold text-text-primary dark:text-gray-100">NGUYEN VAN A</span></p>
-                        <p className="text-text-secondary dark:text-gray-300 flex justify-between"><span>Số tài khoản:</span> <span className="font-semibold text-text-primary dark:text-gray-100 font-mono">0123456789</span></p>
-                     </div>
-                     <div className="mt-4 p-3 bg-yellow-100/50 dark:bg-yellow-900/30 border border-yellow-500/50 rounded-lg text-sm">
-                        <p className="font-semibold text-yellow-800 dark:text-yellow-300">Nội dung chuyển khoản:</p>
-                        <p className="text-text-primary dark:text-yellow-200 font-mono mt-1">[SĐT] [Mã gói]</p>
-                     </div>
+            {/* Payment Info / QR Section - Centered and Enhanced */}
+            <div className="bg-gradient-to-br from-white/80 to-gray-100/80 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md rounded-xl shadow-lg p-6 border border-border-color dark:border-gray-700 max-w-3xl mx-auto">
+                <h3 className="text-lg font-bold text-text-primary dark:text-white mb-4 flex items-center gap-2 justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-accent" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                    Thanh toán chuyển khoản
+                </h3>
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                    <div className="flex-shrink-0 text-center">
+                        <QRCodeIcon />
+                        <p className="text-text-secondary dark:text-gray-400 mt-2 text-xs font-medium">Quét mã QR</p>
+                    </div>
+                    <div className="w-full flex-grow space-y-2 text-sm">
+                        <div className="flex justify-between p-2 bg-white dark:bg-gray-800 rounded shadow-sm">
+                            <span className="text-text-secondary dark:text-gray-400">Ngân hàng</span>
+                            <span className="font-semibold text-text-primary dark:text-gray-100">MB Bank</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-white dark:bg-gray-800 rounded shadow-sm">
+                            <span className="text-text-secondary dark:text-gray-400">Chủ tài khoản</span>
+                            <span className="font-semibold text-text-primary dark:text-gray-100">NGUYEN VAN A</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-white dark:bg-gray-800 rounded shadow-sm">
+                            <span className="text-text-secondary dark:text-gray-400">Số tài khoản</span>
+                            <span className="font-semibold text-text-primary dark:text-gray-100 font-mono text-base">0123456789</span>
+                        </div>
+                        <div className="mt-3 p-2 bg-yellow-100/50 dark:bg-yellow-900/20 border border-yellow-500/30 rounded text-xs">
+                            <p className="font-semibold text-yellow-800 dark:text-yellow-400">Nội dung chuyển khoản:</p>
+                            <p className="text-text-primary dark:text-yellow-100 font-mono mt-1">[SĐT] [Tên Gói] (VD: 0912345678 PRO)</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -220,7 +207,7 @@ const Checkout: React.FC = () => {
                                 <div className="flex justify-center mb-4 text-accent">
                                    <Spinner />
                                 </div>
-                                <h3 className="text-xl font-bold text-text-primary dark:text-white mb-2">Đang xử lý thanh toán...</h3>
+                                <h3 className="text-xl font-bold text-text-primary dark:text-white mb-2">Đang xử lý...</h3>
                                 <p className="text-text-secondary dark:text-gray-400 text-sm">Vui lòng không tắt trình duyệt.</p>
                             </div>
                         ) : paymentStatus === 'success' ? (
@@ -229,7 +216,7 @@ const Checkout: React.FC = () => {
                                     <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                                 </div>
                                 <h3 className="text-xl font-bold text-green-600 dark:text-green-400 mb-2">Thành công!</h3>
-                                <p className="text-text-secondary dark:text-gray-300 mb-6">{statusMessage}</p>
+                                <p className="text-text-secondary dark:text-gray-300 mb-6 text-sm">{statusMessage}</p>
                                 <button onClick={closeStatusModal} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                                     Hoàn tất
                                 </button>
@@ -240,7 +227,7 @@ const Checkout: React.FC = () => {
                                     <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </div>
                                 <h3 className="text-xl font-bold text-red-600 dark:text-red-400 mb-2">Thất bại</h3>
-                                <p className="text-text-secondary dark:text-gray-300 mb-6">{statusMessage}</p>
+                                <p className="text-text-secondary dark:text-gray-300 mb-6 text-sm">{statusMessage}</p>
                                 <button onClick={closeStatusModal} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                                     Thử lại
                                 </button>

@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [toolStates, setToolStates] = useState<ToolStates>(initialToolStates);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark'); // Default to dark mode
   const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   // Check for pending tab focus to auto-login after email verification
   useEffect(() => {
@@ -192,7 +193,8 @@ const App: React.FC = () => {
       if (session) {
           setView('app');
           setActiveTool(Tool.Pricing);
-          handleToolStateChange(Tool.Pricing, { activeTab: 'profile' });
+          // Updated: Default to 'plans' when opening profile from header
+          handleToolStateChange(Tool.Pricing, { activeTab: 'plans' });
       }
   }
 
@@ -387,7 +389,7 @@ const App: React.FC = () => {
 
   if (loadingSession) {
     return (
-      <div className="min-h-screen bg-main-bg dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
         <Spinner />
       </div>
     );
@@ -409,7 +411,7 @@ const App: React.FC = () => {
         );
     }
     return (
-        <div className="min-h-screen bg-gradient-to-br from-main-bg to-gray-200 dark:from-gray-900 dark:to-gray-800 font-sans flex flex-col transition-colors duration-300">
+        <div className="min-h-screen bg-[#121212] font-display text-[#EAEAEA] flex flex-col transition-colors duration-300">
             <Header 
                 onGoHome={handleGoHome} 
                 onThemeToggle={handleThemeToggle} 
@@ -420,10 +422,22 @@ const App: React.FC = () => {
                 onOpenProfile={handleOpenProfile} 
                 userStatus={userStatus}
                 user={session.user}
+                onToggleNav={() => setIsMobileNavOpen(!isMobileNavOpen)}
             />
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row gap-6 flex-grow h-[calc(100vh-80px)]">
-                <Navigation activeTool={activeTool} setActiveTool={setActiveTool} />
-                <main className="flex-1 bg-surface/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700 overflow-y-auto scrollbar-hide">
+            <div className="relative flex flex-col md:flex-row flex-grow h-[calc(100vh-64px)] overflow-hidden">
+                {/* Navigation Sidebar - Responsive */}
+                <Navigation 
+                    activeTool={activeTool} 
+                    setActiveTool={(tool) => {
+                        setActiveTool(tool);
+                        setIsMobileNavOpen(false); // Close on select mobile
+                    }} 
+                    isMobileOpen={isMobileNavOpen}
+                    onCloseMobile={() => setIsMobileNavOpen(false)}
+                />
+                
+                {/* Main Content Area */}
+                <main className="flex-1 bg-[#191919]/90 backdrop-blur-md md:m-6 md:ml-0 md:rounded-2xl shadow-lg border-t md:border border-[#302839] overflow-y-auto scrollbar-hide p-4 sm:p-6 lg:p-8 relative z-0">
                     {renderTool()}
                 </main>
             </div>

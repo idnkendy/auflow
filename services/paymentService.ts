@@ -59,15 +59,16 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
         };
 
         // A. Xử lý Credits: Cộng dồn vào số cũ
+        // Nếu user mới chưa có profile, mặc định tặng 50 credits + gói mua
+        const currentCredits = currentProfile?.credits || 50; 
         if (plan.credits && plan.credits > 0) {
-            const currentCredits = currentProfile?.credits || 100; // Mặc định 100 nếu user mới
             updates.credits = currentCredits + plan.credits;
-        } else if (!currentProfile) {
-            updates.credits = 100; // Init credits cho user mới nếu chỉ mua gói tháng
+        } else {
+            updates.credits = currentCredits;
         }
 
-        // B. Xử lý Subscription: Logic cộng dồn thời gian (Stacking)
-        if (plan.type === 'subscription') {
+        // B. Xử lý Subscription: Logic cộng dồn thời gian (Stacking) theo tháng dương lịch
+        if (plan.type === 'subscription' && plan.durationMonths) {
             const now = new Date();
             let currentEndDate = currentProfile?.subscription_end 
                 ? new Date(currentProfile.subscription_end) 
@@ -77,9 +78,15 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
             // Nếu hạn cũ đã hết (< now), thì bắt đầu tính từ bây giờ.
             const effectiveStartDate = currentEndDate > now ? currentEndDate : now;
 
-            // Cộng thêm 30 ngày vào ngày bắt đầu hiệu lực
-            const daysToAdd = 30;
-            const newEndDate = new Date(effectiveStartDate.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+            // Tính ngày hết hạn mới bằng cách cộng số tháng
+            const newEndDate = new Date(effectiveStartDate);
+            newEndDate.setMonth(newEndDate.getMonth() + plan.durationMonths);
+            
+            // Xử lý edge case (vd: 31/1 + 1 tháng -> 28/2 hoặc 29/2)
+            // Nếu ngày bị lệch sang tháng sau (do tháng cũ dài hơn tháng mới), set về ngày cuối tháng
+            if (newEndDate.getDate() !== effectiveStartDate.getDate()) {
+                newEndDate.setDate(0);
+            }
 
             updates.subscription_end = newEndDate.toISOString();
         }
@@ -102,7 +109,7 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
 
         return {
             success: true,
-            message: "Thanh toán thành công! Gói cước đã được kích hoạt.",
+            message: `Thanh toán thành công! Đã cộng ${new Intl.NumberFormat('vi-VN').format(plan.credits || 0)} credits.`,
             transactionId: transactionCode
         };
     } else {
@@ -141,28 +148,30 @@ export const getUserStatus = async (userId: string): Promise<UserStatus> => {
     } else {
         // Init profile for new user
         console.log("Profile not found in getUserStatus, initializing...");
-        currentCredits = 100; 
+        currentCredits = 50; // NEW USER BONUS: 50 Credits
         
         const { data: { user } } = await supabase.auth.getUser();
-        // Race condition handling: try insert, if fail (exists), then select again
-        const { error: insertError } = await supabase.from('profiles').upsert({
-            id: userId,
-            email: user?.email,
-            credits: currentCredits,
-            subscription_end: null
-        }, { onConflict: 'id' });
-        
-        if (insertError) {
-             console.log("Profile init race condition (normal), retrying fetch...");
-             const { data: retryProfile } = await supabase
-                .from('profiles')
-                .select('credits, subscription_end')
-                .eq('id', userId)
-                .maybeSingle();
-             if (retryProfile) {
-                 currentCredits = retryProfile.credits;
-                 subscriptionEnd = retryProfile.subscription_end;
-             }
+        if (user) {
+            // Race condition handling: try insert, if fail (exists), then select again
+            const { error: insertError } = await supabase.from('profiles').upsert({
+                id: userId,
+                email: user.email,
+                credits: currentCredits,
+                subscription_end: null
+            }, { onConflict: 'id' });
+            
+            if (insertError) {
+                 console.log("Profile init race condition (normal), retrying fetch...");
+                 const { data: retryProfile } = await supabase
+                    .from('profiles')
+                    .select('credits, subscription_end')
+                    .eq('id', userId)
+                    .maybeSingle();
+                 if (retryProfile) {
+                     currentCredits = retryProfile.credits;
+                     subscriptionEnd = retryProfile.subscription_end;
+                 }
+            }
         }
     }
 

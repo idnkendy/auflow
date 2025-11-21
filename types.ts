@@ -59,6 +59,7 @@ export interface PricingPlan {
   credits?: number;
   highlight?: boolean;
   description: string;
+  durationMonths?: number; // Added for variable subscription length
 }
 
 export interface Transaction {
