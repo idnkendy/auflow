@@ -184,8 +184,18 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         }
     };
 
-    // Update Cost: 5 credits per image
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
 
     const performGeneration = async (
         prompt: string, 
@@ -196,34 +206,29 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         resolution: ImageResolution,
         jobId?: string
     ): Promise<string[]> => {
-        // Logic for High Quality (Gemini 3.0 Pro)
-        if (resolution === '2K' || resolution === '4K') {
+        
+        // Construct a rich prompt
+        let promptForService = "";
+        if (sourceImage) {
+             promptForService = `Generate an image with a strict aspect ratio of ${aspectRatio}. Adapt the composition from the source image to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${prompt}`;
+             if (referenceImage) {
+                 promptForService += ` Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
+             }
+        } else {
+             promptForService = `${prompt}, photorealistic architectural rendering, high detail, masterpiece`;
+        }
+
+        // High Quality (Nano Banana Pro 1K/2K/4K)
+        if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
             const promises = Array.from({ length: numberOfImages }).map(async () => {
-                const images = await geminiService.generateHighQualityImage(prompt, aspectRatio, resolution, sourceImage || undefined);
+                const images = await geminiService.generateHighQualityImage(promptForService, aspectRatio, resolution, sourceImage || undefined);
                 return images[0];
             });
             return await Promise.all(promises);
         }
 
-        // Logic for Standard Quality (Imagen/Flash)
-         if (sourceImage) {
-            // Image-to-Image Generation
-            const promptForService = `Generate an image with a strict aspect ratio of ${aspectRatio}. Adapt the composition from the source image to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${prompt}`;
-            
-            let results;
-            if (referenceImage) {
-                const promptWithRef = `${promptForService} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
-                results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages, jobId);
-            } else {
-                results = await geminiService.editImage(promptForService, sourceImage, numberOfImages, jobId);
-            }
-            return results.map(r => r.imageUrl);
-    
-        } else {
-            // Text-to-Image Generation
-            const promptForService = `${prompt}, photorealistic architectural rendering, high detail, masterpiece`;
-            return await geminiService.generateImage(promptForService, aspectRatio, numberOfImages, jobId);
-        }
+        // Standard (Nano Banana Flash)
+        return await geminiService.generateStandardImage(promptForService, aspectRatio, numberOfImages, sourceImage || undefined, jobId);
     };
 
     const handleGenerate = async () => {
@@ -244,12 +249,12 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         let logId: string | null = null;
 
         try {
-            // 1. Deduct credits first & Get Log ID
+            // 1. Deduct credits
             if (onDeductCredits) {
                 logId = await onDeductCredits(cost, `Render kiến trúc (${numberOfImages} ảnh) - ${resolution}`);
             }
             
-            // 2. Create Job (Pending)
+            // 2. Create Job
             const { data: { user } } = await supabase.auth.getUser();
             if (user && logId) {
                  jobId = await jobService.createJob({
@@ -261,36 +266,29 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                 });
             }
 
-            // 3. Smart Retry Logic
+            // 3. Smart Retry Logic (For Standard) or Direct Call (For Pro)
             let attempts = 0;
-            const maxAttempts = 60; // Try for 5 minutes
+            const maxAttempts = 60; 
             let imageUrls: string[] = [];
             let success = false;
 
-            // For HQ (2K/4K), we don't use the retry loop because it involves user interaction with window.aistudio
-            if (resolution === '2K' || resolution === '4K') {
+            if (resolution !== 'Standard') {
                  if (jobId) await jobService.updateJobStatus(jobId, 'processing');
                  imageUrls = await performGeneration(customPrompt, sourceImage, referenceImage, numberOfImages, aspectRatio, resolution, jobId || undefined);
                  success = true;
             } else {
-                // Standard Retry Loop for other models
+                // Retry Loop for Standard/Flash
                 while (attempts < maxAttempts) {
                     try {
                          if (jobId) await jobService.updateJobStatus(jobId, 'processing');
-                         
                          imageUrls = await performGeneration(customPrompt, sourceImage, referenceImage, numberOfImages, aspectRatio, resolution, jobId || undefined);
-                         
                          success = true;
                          break;
-    
                     } catch (apiError: any) {
                         if (apiError.message === 'SYSTEM_BUSY') {
                             attempts++;
-                            console.warn(`System busy, retrying... (${attempts}/${maxAttempts})`);
-                            setStatusMessage(`Hệ thống đang bận (${attempts}), vui lòng đợi trong giây lát...`);
-                            
+                            setStatusMessage(`Hệ thống đang bận (${attempts}), vui lòng đợi...`);
                             if (jobId) await jobService.updateJobStatus(jobId, 'pending');
-    
                             await new Promise(resolve => setTimeout(resolve, 5000)); 
                         } else {
                             throw apiError; 
@@ -303,13 +301,12 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                  throw new Error("Hệ thống quá tải. Đã hoàn tiền, vui lòng thử lại sau.");
             }
 
-            // Success Handling
             onStateChange({ resultImages: imageUrls });
             if (jobId && imageUrls.length > 0) {
                 await jobService.updateJobStatus(jobId, 'completed', imageUrls[0]);
             }
 
-             // Add history
+            // Add history
             const historyPrompt = sourceImage 
                 ? `Generate an image with a strict aspect ratio of ${aspectRatio}. Adapt the composition from the source image to fit this new frame. The main creative instruction is: ${customPrompt}`
                 : `${customPrompt}, photorealistic architectural rendering, high detail, masterpiece`;
@@ -330,7 +327,6 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
             if (jobId) {
                 await jobService.updateJobStatus(jobId, 'failed', undefined, errorMessage);
             }
-            // Refund
              const { data: { user } } = await supabase.auth.getUser();
              if (user) {
                 await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi render kiến trúc (${errorMessage})`);
@@ -467,9 +463,17 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                         </div>
                         
                         {/* Output Settings */}
-                        <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({numberOfImages: val})} disabled={isLoading || isUpscaling} />
-                            <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({aspectRatio: val})} disabled={isLoading || isUpscaling} />
+                        <div className="pt-4 grid grid-cols-2 gap-4">
+                            <div>
+                                <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({numberOfImages: val})} disabled={isLoading || isUpscaling} />
+                            </div>
+                            <div>
+                                <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({aspectRatio: val})} disabled={isLoading || isUpscaling} />
+                            </div>
+                        </div>
+                        
+                        {/* Resolution Selector on its own row */}
+                        <div className="pt-4">
                             <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading || isUpscaling} />
                         </div>
                     </div>

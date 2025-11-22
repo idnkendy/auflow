@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
-import { FileData, Tool, AspectRatio } from '../types';
+import { FileData, Tool, AspectRatio, ImageResolution } from '../types';
 import { MoodboardGeneratorState } from '../state/toolState';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
 import NumberOfImagesSelector from './common/NumberOfImagesSelector';
 import ResultGrid from './common/ResultGrid';
 import AspectRatioSelector from './common/AspectRatioSelector';
+import ResolutionSelector from './common/ResolutionSelector';
 
 const SparklesIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -24,7 +25,7 @@ interface MoodboardGeneratorProps {
 }
 
 const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { prompt, sourceImage, isLoading, error, resultImages, numberOfImages, aspectRatio, mode } = state;
+    const { prompt, sourceImage, isLoading, error, resultImages, numberOfImages, aspectRatio, mode, resolution } = state;
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
     
     const handleFileSelect = (fileData: FileData | null) => {
@@ -53,8 +54,22 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
         }
     };
 
-    // Update Cost: 5 credits per image
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -73,7 +88,7 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
 
         try {
             if (onDeductCredits) {
-                await onDeductCredits(cost, `Tạo Moodboard (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `Tạo Moodboard (${numberOfImages} ảnh) - ${resolution}`);
             }
 
             let fullPrompt = '';
@@ -100,7 +115,21 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
                 `;
             }
 
-            const results = await geminiService.editImage(fullPrompt, sourceImage, numberOfImages);
+            let results: any[] = [];
+
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    const images = await geminiService.generateHighQualityImage(fullPrompt, aspectRatio, resolution, sourceImage || undefined);
+                    return { imageUrl: images[0] };
+                });
+                results = await Promise.all(promises);
+            } 
+            // Standard (Flash) Logic
+            else {
+                results = await geminiService.editImage(fullPrompt, sourceImage, numberOfImages);
+            }
+
             const imageUrls = results.map(r => r.imageUrl);
             onStateChange({ resultImages: imageUrls });
             
@@ -194,8 +223,17 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
                             </div>
                             <div className="flex-grow"></div>
                             <div className="space-y-4">
-                                <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
-                                <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                                    </div>
+                                    <div>
+                                        <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
+                                </div>
                             </div>
                         </div>
                     </div>

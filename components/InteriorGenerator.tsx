@@ -167,8 +167,18 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
         }
     };
 
-    // Update Cost: 5 credits per image
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -187,14 +197,19 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
 
         onStateChange({ isLoading: true, error: null, resultImages: [], upscaledImage: null });
 
-        const promptForService = `Generate an image with a strict aspect ratio of ${aspectRatio}. Adapt the composition of the interior scene from the source image to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}`;
+        // Standardized prompt construction
+        let promptForService = `Generate an image with a strict aspect ratio of ${aspectRatio}. Adapt the composition of the interior scene from the source image to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}. Make it photorealistic interior design.`;
+        
+        if (referenceImage) {
+             promptForService += ` Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
+        }
         
         let jobId: string | null = null;
         let logId: string | null = null;
 
         try {
             if (onDeductCredits) {
-                logId = await onDeductCredits(cost, `Render nội thất (${numberOfImages} ảnh) - ${resolution || '1K'}`);
+                logId = await onDeductCredits(cost, `Render nội thất (${numberOfImages} ảnh) - ${resolution || 'Standard'}`);
             }
 
             const { data: { user } } = await supabase.auth.getUser();
@@ -210,27 +225,21 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
 
             if (jobId) await jobService.updateJobStatus(jobId, 'processing');
 
-            let results: { imageUrl: string }[];
+            let imageUrls: string[] = [];
             
-            // High Quality Logic
-            if (resolution === '2K' || resolution === '4K') {
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
                 const promises = Array.from({ length: numberOfImages }).map(async () => {
-                    const images = await geminiService.generateHighQualityImage(customPrompt, aspectRatio, resolution, sourceImage || undefined);
+                    const images = await geminiService.generateHighQualityImage(promptForService, aspectRatio, resolution, sourceImage || undefined);
                     return images[0];
                 });
-                const images = await Promise.all(promises);
-                results = images.map(url => ({ imageUrl: url })); // Normalize structure
-            } else {
-                // Standard Logic
-                 if (referenceImage) {
-                     const promptWithRef = `${promptForService} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
-                     results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages, jobId || undefined);
-                } else {
-                     results = await geminiService.editImage(promptForService, sourceImage, numberOfImages, jobId || undefined);
-                }
+                imageUrls = await Promise.all(promises);
+            } 
+            // Standard (Flash) Logic
+            else {
+                imageUrls = await geminiService.generateStandardImage(promptForService, aspectRatio, numberOfImages, sourceImage || undefined, jobId || undefined);
             }
             
-            const imageUrls = results.map(r => r.imageUrl);
             onStateChange({ resultImages: imageUrls });
 
             if (jobId && imageUrls.length > 0) {
@@ -252,7 +261,6 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
              if (jobId) {
                 await jobService.updateJobStatus(jobId, 'failed', undefined, errorMessage);
             }
-            // Refund
              const { data: { user } } = await supabase.auth.getUser();
              if (user) {
                 await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi render nội thất (${errorMessage})`);
@@ -378,10 +386,16 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
                                 </div>
                             </div>
                             
-                            <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                               <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading || isUpscaling} />
-                               <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading || isUpscaling} />
-                               <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading || isUpscaling} />
+                            <div className="pt-4 grid grid-cols-2 gap-4">
+                                <div>
+                                    <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading || isUpscaling} />
+                                </div>
+                                <div>
+                                    <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading || isUpscaling} />
+                                </div>
+                            </div>
+                            <div className="pt-4">
+                                <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading || isUpscaling} />
                             </div>
                         </div>
                     </div>

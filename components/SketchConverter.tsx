@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { FileData, Tool } from '../types';
+import { FileData, Tool, ImageResolution } from '../types';
 import { SketchConverterState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
 import ImageComparator from './ImageComparator';
+import ResolutionSelector from './common/ResolutionSelector';
 
 interface SketchConverterProps {
     state: SketchConverterState;
@@ -16,8 +17,20 @@ interface SketchConverterProps {
 }
 
 const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { sourceImage, isLoading, error, resultImage, sketchStyle, detailLevel } = state;
-    const cost = 5;
+    const { sourceImage, isLoading, error, resultImage, sketchStyle, detailLevel, resolution } = state;
+    
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = getCostPerImage(); // Usually 1 image
 
     const handleFileSelect = (fileData: FileData | null) => {
         onStateChange({
@@ -25,6 +38,10 @@ const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange,
             resultImage: null,
             error: null,
         });
+    };
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
     };
 
     const handleGenerate = async () => {
@@ -65,10 +82,22 @@ const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange,
 
         try {
             if (onDeductCredits) {
-                await onDeductCredits(cost, `Chuyển đổi Sketch (${sketchStyle})`);
+                await onDeductCredits(cost, `Chuyển đổi Sketch (${sketchStyle}) - ${resolution}`);
             }
 
-            const results = await geminiService.editImage(prompt, sourceImage, 1);
+            let results: any[] = [];
+
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                // High Quality generator typically returns 1 image unless configured otherwise, we treat it as 1 here for sketch
+                const images = await geminiService.generateHighQualityImage(prompt, '1:1', resolution, sourceImage || undefined);
+                results = [{ imageUrl: images[0] }];
+            } 
+            // Standard (Flash) Logic
+            else {
+                results = await geminiService.editImage(prompt, sourceImage, 1);
+            }
+
             const imageUrl = results[0].imageUrl;
             onStateChange({ resultImage: imageUrl });
 
@@ -156,6 +185,10 @@ const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange,
                         detailLevel,
                         (value) => onStateChange({ detailLevel: value })
                     )}
+                    
+                    <div>
+                        <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
+                    </div>
 
                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-3 border border-gray-200 dark:border-gray-700">
                         <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">

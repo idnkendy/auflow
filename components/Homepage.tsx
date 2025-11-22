@@ -89,9 +89,10 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
             <div className="hidden md:flex flex-1 justify-end gap-8 items-center">
                 <div className="flex items-center gap-9">
                     <button onClick={() => handleNavClick(Tool.ArchitecturalRendering)} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Tính năng</button>
-                    {!session && onNavigateToPricing && (
+                    {/* Pricing Link Hidden Temporarily */}
+                    {/* {!session && onNavigateToPricing && (
                         <button onClick={onNavigateToPricing} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Bảng giá</button>
-                    )}
+                    )} */}
                     {session && (
                         <button onClick={onGoToGallery} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Thư viện</button>
                     )}
@@ -310,9 +311,10 @@ const Footer: React.FC<{onStart: () => void, onNavigateToPricing?: () => void}> 
                 <div className="flex flex-col gap-4">
                     <h3 className="font-bold text-white">Sản phẩm</h3>
                     <button onClick={onStart} className="text-gray-400 hover:text-white text-left text-sm">Tính năng</button>
-                    {onNavigateToPricing && (
+                    {/* Pricing Link Hidden in Footer */}
+                    {/* {onNavigateToPricing && (
                         <button onClick={onNavigateToPricing} className="text-gray-400 hover:text-white text-left text-sm">Bảng giá</button>
-                    )}
+                    )} */}
                     <button onClick={onStart} className="text-gray-400 hover:text-white text-left text-sm">Thư viện</button>
                 </div>
                 

@@ -96,6 +96,7 @@ export interface ViewSyncState {
     selectedAtmosphere: string;
     selectedFraming: string;
     selectedInteriorAngle: string;
+    resolution: ImageResolution;
 }
 
 export interface VirtualTourState {
@@ -105,6 +106,7 @@ export interface VirtualTourState {
     error: string | null;
     tourStepSize: number;
     tourHistory: FileData[];
+    resolution: ImageResolution;
 }
 
 export interface RenovationState {
@@ -117,6 +119,7 @@ export interface RenovationState {
     renovatedImages: string[];
     numberOfImages: number;
     aspectRatio: AspectRatio;
+    resolution: ImageResolution;
 }
 
 export interface FloorPlanState {
@@ -130,6 +133,7 @@ export interface FloorPlanState {
     numberOfImages: number;
     renderMode: 'top-down' | 'perspective';
     planType: 'interior' | 'exterior';
+    resolution: ImageResolution;
 }
 
 export interface MaterialSwapperState {
@@ -148,6 +152,7 @@ export interface UpscaleState {
     error: string | null;
     upscaledImages: string[];
     numberOfImages: number;
+    resolution: ImageResolution;
 }
 
 export interface MoodboardGeneratorState {
@@ -159,6 +164,7 @@ export interface MoodboardGeneratorState {
     numberOfImages: number;
     aspectRatio: AspectRatio;
     mode: 'moodboardToScene' | 'sceneToMoodboard';
+    resolution: ImageResolution;
 }
 
 export interface StagingState {
@@ -204,7 +210,8 @@ export interface SketchConverterState {
     error: string | null;
     resultImage: string | null;
     sketchStyle: 'pencil' | 'charcoal' | 'watercolor';
-    detailLevel: 'low' | 'medium' | 'high';
+    detailLevel: 'medium' | 'high';
+    resolution: ImageResolution;
 }
 
 export interface LuBanRulerState {
@@ -226,7 +233,6 @@ export interface FengShuiState {
     error: string | null;
     resultImage: string | null;
     analysisText: string | null;
-    // New fields for Am Trach
     deathDay: string;
     deathMonth: string;
     deathYear: string;
@@ -237,15 +243,11 @@ export interface FengShuiState {
     eldestChildBirthYear: string;
     graveDirection: string;
     terrainDescription: string;
-    // New fields for Loan Dau
     latitude: number | null;
     longitude: number | null;
-    // New fields for Duong Trach
     kitchenDirection: string;
     bedroomDirection: string;
-    // New field for Ngay gio tot
     eventType: string;
-    // New field for Van Khan
     vanKhanType: string;
 }
 
@@ -271,7 +273,7 @@ export const initialToolStates = {
         upscaledImage: null,
         numberOfImages: 1,
         aspectRatio: '4:3',
-        resolution: '1K',
+        resolution: 'Standard',
     } as ImageGeneratorState,
     [Tool.InteriorRendering]: {
         style: 'none',
@@ -288,7 +290,7 @@ export const initialToolStates = {
         upscaledImage: null,
         numberOfImages: 1,
         aspectRatio: '4:3',
-        resolution: '1K',
+        resolution: 'Standard',
     } as InteriorGeneratorState,
     [Tool.UrbanPlanning]: {
         viewType: 'none',
@@ -304,7 +306,7 @@ export const initialToolStates = {
         upscaledImage: null,
         numberOfImages: 1,
         aspectRatio: '16:9',
-        resolution: '1K',
+        resolution: 'Standard',
     } as UrbanPlanningState,
     [Tool.LandscapeRendering]: {
         gardenStyle: 'none',
@@ -320,7 +322,7 @@ export const initialToolStates = {
         upscaledImage: null,
         numberOfImages: 1,
         aspectRatio: '16:9',
-        resolution: '1K',
+        resolution: 'Standard',
     } as LandscapeRenderingState,
     [Tool.FloorPlan]: {
         prompt: 'Render theo phong cách Scandinavian với nội thất gỗ sồi, tường trắng và nhiều ánh sáng tự nhiên.',
@@ -333,6 +335,7 @@ export const initialToolStates = {
         numberOfImages: 1,
         renderMode: 'top-down',
         planType: 'interior',
+        resolution: 'Standard',
     } as FloorPlanState,
     [Tool.Renovation]: {
         prompt: 'Cải tạo mặt tiền ngôi nhà này theo phong cách hiện đại, tối giản. Sử dụng vật liệu gỗ, kính và bê tông. Thêm nhiều cây xanh xung quanh.',
@@ -344,6 +347,7 @@ export const initialToolStates = {
         renovatedImages: [],
         numberOfImages: 1,
         aspectRatio: '4:3',
+        resolution: 'Standard',
     } as RenovationState,
     [Tool.ViewSync]: {
         sourceImage: null,
@@ -359,6 +363,7 @@ export const initialToolStates = {
         selectedAtmosphere: 'default',
         selectedFraming: 'none',
         selectedInteriorAngle: 'default',
+        resolution: 'Standard',
     } as ViewSyncState,
     [Tool.VirtualTour]: {
         sourceImage: null,
@@ -367,6 +372,7 @@ export const initialToolStates = {
         error: null,
         tourStepSize: 30,
         tourHistory: [],
+        resolution: 'Standard',
     } as VirtualTourState,
      [Tool.PromptSuggester]: {
         sourceImage: null,
@@ -399,6 +405,7 @@ export const initialToolStates = {
         error: null,
         upscaledImages: [],
         numberOfImages: 1,
+        resolution: 'Standard',
     } as UpscaleState,
     [Tool.Moodboard]: {
         prompt: 'Một phòng khách hiện đại và rộng rãi.',
@@ -409,6 +416,7 @@ export const initialToolStates = {
         numberOfImages: 1,
         aspectRatio: '4:3',
         mode: 'moodboardToScene',
+        resolution: 'Standard',
     } as MoodboardGeneratorState,
     [Tool.VideoGeneration]: {
         prompt: 'Tạo video time-lapse cho thấy tòa nhà chuyển từ cảnh ban ngày nắng đẹp sang cảnh ban đêm được chiếu sáng đẹp mắt.',
@@ -453,6 +461,7 @@ export const initialToolStates = {
         resultImage: null,
         sketchStyle: 'pencil',
         detailLevel: 'medium',
+        resolution: 'Standard',
     } as SketchConverterState,
     [Tool.LuBanRuler]: {
         width: '1940',

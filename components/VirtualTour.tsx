@@ -2,10 +2,11 @@
 import React from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
-import { FileData, Tool } from '../types';
+import { FileData, Tool, ImageResolution } from '../types';
 import { VirtualTourState } from '../state/toolState';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
+import ResolutionSelector from './common/ResolutionSelector';
 
 // --- ICONS for Tour Panel ---
 const PanLeftIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" /></svg>;
@@ -27,8 +28,20 @@ interface VirtualTourProps {
 }
 
 const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { sourceImage, currentTourImage, isLoading, error, tourStepSize, tourHistory } = state;
-    const costPerStep = 5;
+    const { sourceImage, currentTourImage, isLoading, error, tourStepSize, tourHistory, resolution } = state;
+    
+    // Calculate cost based on resolution
+    const getCostPerStep = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const costPerStep = getCostPerStep();
 
     const handleTourFileSelect = (fileData: FileData | null) => {
         onStateChange({
@@ -37,6 +50,10 @@ const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCre
             tourHistory: fileData ? [fileData] : [],
             error: null
         });
+    };
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
     };
 
     const handleTourStep = async (action: 'pan-left' | 'pan-right' | 'tilt-up' | 'tilt-down' | 'orbit-left' | 'orbit-right' | 'zoom-in' | 'zoom-out') => {
@@ -68,10 +85,21 @@ const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCre
 
         try {
              if (onDeductCredits) {
-                await onDeductCredits(costPerStep, `Virtual Tour (${action})`);
+                await onDeductCredits(costPerStep, `Virtual Tour (${action}) - ${resolution}`);
             }
 
-            const results = await geminiService.editImage(prompt, currentTourImage, 1);
+            let results: { imageUrl: string }[] = [];
+
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                const images = await geminiService.generateHighQualityImage(prompt, '16:9', resolution, currentTourImage || undefined);
+                results = [{ imageUrl: images[0] }];
+            } 
+            // Standard (Flash) Logic
+            else {
+                results = await geminiService.editImage(prompt, currentTourImage, 1);
+            }
+
             const imageUrl = results[0].imageUrl;
             const newImage: FileData = {
                 base64: imageUrl.split(',')[1],
@@ -129,6 +157,9 @@ const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCre
                             />
                             <span className="font-semibold text-text-primary dark:text-white w-12 text-center">{tourStepSize}°</span>
                         </div>
+                    </div>
+                    <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
+                        <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
                     </div>
                     
                      <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">

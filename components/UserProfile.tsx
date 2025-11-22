@@ -19,15 +19,17 @@ interface UserProfileProps {
     onPurchaseSuccess?: () => void;
 }
 
-const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'plans', onTabChange, onPurchaseSuccess }) => {
-    const [activeTab, setActiveTab] = useState<'profile' | 'plans' | 'history'>(initialTab);
+const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profile', onTabChange, onPurchaseSuccess }) => {
+    // Changed default to 'profile'
+    const [activeTab, setActiveTab] = useState<'profile' | 'plans' | 'history'>(initialTab === 'plans' ? 'profile' : initialTab);
     
     // History State
     const [transactionHistory, setTransactionHistory] = useState<Transaction[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
     useEffect(() => {
-        setActiveTab(initialTab);
+        // Fallback to profile if plans is requested but hidden
+        setActiveTab(initialTab === 'plans' ? 'profile' : initialTab);
     }, [initialTab]);
 
     useEffect(() => {
@@ -70,12 +72,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'plans'
                 
                 {/* Mobile: Horizontal Scroll, Desktop: Vertical Stack */}
                 <div className="w-full flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
-                    <button 
+                    {/* Hidden Plans Button */}
+                    {/* <button 
                         onClick={() => handleTabClick('plans')}
                         className={`flex-shrink-0 w-auto lg:w-full text-left px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${activeTab === 'plans' ? 'bg-accent text-white' : 'text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                     >
                         Gói cước & Thanh toán
-                    </button>
+                    </button> */}
 
                     <button 
                         onClick={() => handleTabClick('profile')}
@@ -96,12 +99,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'plans'
             {/* Content Area */}
             <div className="lg:w-3/4 bg-surface dark:bg-dark-bg rounded-xl shadow-sm border border-border-color dark:border-gray-700 p-4 sm:p-6 lg:p-8 overflow-y-auto scrollbar-hide flex-grow h-full">
                 
-                {/* === TAB: PLANS === */}
-                {activeTab === 'plans' && (
+                {/* === TAB: PLANS (Hidden) === */}
+                {/* {activeTab === 'plans' && (
                     <div className="animate-fade-in h-full">
                         <Checkout />
                     </div>
-                )}
+                )} */}
 
                 {/* === TAB: PROFILE === */}
                 {activeTab === 'profile' && (

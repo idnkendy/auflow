@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
-import { FileData, Tool, AspectRatio } from '../types';
+import { FileData, Tool, AspectRatio, ImageResolution } from '../types';
 import { ViewSyncState } from '../state/toolState';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
@@ -11,6 +11,7 @@ import ResultGrid from './common/ResultGrid';
 import AspectRatioSelector from './common/AspectRatioSelector';
 import OptionSelector from './common/OptionSelector';
 import DirectionalModal from './DirectionalModal';
+import ResolutionSelector from './common/ResolutionSelector';
 
 // --- Categorized Exterior Views for Combination ---
 const perspectiveAngles = [
@@ -67,7 +68,7 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
     const {
         sourceImage, directionImage, isLoading, error, resultImages, numberOfImages, sceneType,
         aspectRatio, customPrompt, selectedPerspective, selectedAtmosphere,
-        selectedFraming, selectedInteriorAngle
+        selectedFraming, selectedInteriorAngle, resolution
     } = state;
 
     const [isDirectionModalOpen, setIsDirectionModalOpen] = useState(false);
@@ -81,8 +82,22 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
         setIsDirectionModalOpen(false);
     };
 
-    // Update Cost: 5 credits per image
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -117,16 +132,35 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
         try {
             // Deduct credits
             if (onDeductCredits) {
-                await onDeductCredits(cost, `Đồng bộ view (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `Đồng bộ view (${numberOfImages} ảnh) - ${resolution}`);
             }
 
-            let results;
-            if (directionImage) {
-                const promptWithDirection = `Generate a photorealistic image based on the provided source architectural image. The second image provided contains an arrow indicating the desired new camera direction. Generate the scene from this new perspective, ignoring any other perspective instructions and using the arrow as the primary guide. ${promptWithAspectRatio}`;
-                results = await geminiService.editImageWithReference(promptWithDirection, sourceImage, directionImage, numberOfImages);
-            } else {
-                results = await geminiService.editImage(promptWithAspectRatio, sourceImage, numberOfImages);
+            let results: { imageUrl: string }[] = [];
+
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                // If there's a direction image, we can't use the specialized editImageWithReference function easily with generateHighQualityImage currently (it takes one image).
+                // We will append the instruction to use the direction if available, but rely on text description for the HQ model.
+                if (directionImage) {
+                    promptWithAspectRatio += " Note: The user drew a directional arrow on a separate layer to indicate the new camera angle. Since that image cannot be processed directly in this mode, prioritize the text description of the new perspective.";
+                }
+
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    const images = await geminiService.generateHighQualityImage(promptWithAspectRatio, aspectRatio, resolution, sourceImage || undefined);
+                    return { imageUrl: images[0] };
+                });
+                results = await Promise.all(promises);
+            } 
+            // Standard (Flash) Logic
+            else {
+                if (directionImage) {
+                    const promptWithDirection = `Generate a photorealistic image based on the provided source architectural image. The second image provided contains an arrow indicating the desired new camera direction. Generate the scene from this new perspective, ignoring any other perspective instructions and using the arrow as the primary guide. ${promptWithAspectRatio}`;
+                    results = await geminiService.editImageWithReference(promptWithDirection, sourceImage, directionImage, numberOfImages);
+                } else {
+                    results = await geminiService.editImage(promptWithAspectRatio, sourceImage, numberOfImages);
+                }
             }
+
             const imageUrls = results.map(r => r.imageUrl);
             onStateChange({ resultImages: imageUrls });
             imageUrls.forEach(url => historyService.addToHistory({ tool: Tool.ViewSync, prompt: promptWithAspectRatio, sourceImageURL: sourceImage.objectURL, resultImageURL: url }));
@@ -164,13 +198,19 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
                             <div className="mt-4">
                                 <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">Hoặc chỉ định hướng nhìn trực quan:</p>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setIsDirectionModalOpen(true)} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                                    <button 
+                                        onClick={() => setIsDirectionModalOpen(true)} 
+                                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                                        disabled={resolution !== 'Standard'}
+                                        title={resolution !== 'Standard' ? "Tính năng vẽ hướng chỉ khả dụng ở chế độ Tiêu chuẩn" : "Vẽ hướng"}
+                                    >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                         {directionImage ? 'Sửa hướng' : 'Vẽ Hướng Cần Tạo'}
                                     </button>
                                     {directionImage && <button onClick={() => onStateChange({ directionImage: null })} className="bg-red-600 hover:bg-red-700 text-white font-semibold p-2 rounded-lg transition-colors" title="Xóa hướng đã vẽ"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg></button>}
                                 </div>
                                 {directionImage && <p className="text-xs text-green-500 dark:text-green-400 mt-2">Đã áp dụng hướng. Các tùy chọn 'Góc Máy Chính' sẽ bị bỏ qua.</p>}
+                                {resolution !== 'Standard' && <p className="text-xs text-yellow-500 mt-1">Lưu ý: Chế độ 2K/4K hiện tại chỉ hỗ trợ mô tả bằng văn bản, không hỗ trợ vẽ hướng mũi tên.</p>}
                             </div>
                         )}
                     </div>
@@ -197,8 +237,17 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
                         <textarea id="custom-prompt-view-sync" rows={3} className="w-full bg-surface dark:bg-gray-700/50 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:outline-none transition-all" placeholder="VD: thêm cây xanh, đổi thành ban đêm, trời mưa..." value={customPrompt} onChange={(e) => onStateChange({ customPrompt: e.target.value })} disabled={isLoading} />
                     </div>
                     <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700 self-start space-y-4">
-                        <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
-                        <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                            </div>
+                            <div>
+                                <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading} />
+                            </div>
+                        </div>
+                        <div>
+                            <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
+                        </div>
                     </div>
 
                      <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mt-2 border border-gray-200 dark:border-gray-700">

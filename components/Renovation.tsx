@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileData, Tool, AspectRatio } from '../types';
+import { FileData, Tool, AspectRatio, ImageResolution } from '../types';
 import { RenovationState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -12,6 +12,7 @@ import ResultGrid from './common/ResultGrid';
 import AspectRatioSelector from './common/AspectRatioSelector';
 import ImagePreviewModal from './common/ImagePreviewModal';
 import MaskingModal from './MaskingModal';
+import ResolutionSelector from './common/ResolutionSelector';
 
 
 const renovationSuggestions = [
@@ -37,7 +38,7 @@ interface RenovationProps {
 }
 
 const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { prompt, sourceImage, referenceImage, maskImage, isLoading, error, renovatedImages, numberOfImages, aspectRatio } = state;
+    const { prompt, sourceImage, referenceImage, maskImage, isLoading, error, renovatedImages, numberOfImages, aspectRatio, resolution } = state;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isMaskingModalOpen, setIsMaskingModalOpen] = useState<boolean>(false);
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
@@ -59,8 +60,22 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
         }
     };
 
-    // Update Cost: 5 credits per image
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -81,22 +96,37 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
         try {
             // Deduct credits
             if (onDeductCredits) {
-                await onDeductCredits(cost, `Cải tạo thiết kế (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `Cải tạo thiết kế (${numberOfImages} ảnh) - ${resolution}`);
             }
 
-            let results;
+            let results: { imageUrl: string }[] = [];
             let finalPrompt = `Generate an image with a strict aspect ratio of ${aspectRatio}. Adapt the composition from the source image to fit this new frame while performing the renovation. Do not add black bars or letterbox. The renovation instruction is: ${prompt}`;
 
-            if (maskImage && referenceImage) {
-                finalPrompt = `${finalPrompt} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image for the masked area.`;
-                results = await geminiService.editImageWithMaskAndReference(finalPrompt, sourceImage, maskImage, referenceImage, numberOfImages);
-            } else if (maskImage) {
-                 results = await geminiService.editImageWithMask(finalPrompt, sourceImage, maskImage, numberOfImages);
-            } else if (referenceImage) {
-                finalPrompt = `${finalPrompt} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
-                results = await geminiService.editImageWithReference(finalPrompt, sourceImage, referenceImage, numberOfImages);
-            } else {
-                results = await geminiService.editImage(finalPrompt, sourceImage, numberOfImages);
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                if (maskImage) finalPrompt += " Note: The user wanted to mask specific areas, but in High Quality mode, the entire image will be regenerated to match the renovation request while preserving the overall composition.";
+                if (referenceImage) finalPrompt += " Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.";
+
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    // Use generateHighQualityImage which takes sourceImage
+                    const images = await geminiService.generateHighQualityImage(finalPrompt, aspectRatio, resolution, sourceImage || undefined);
+                    return { imageUrl: images[0] };
+                });
+                results = await Promise.all(promises);
+            } 
+            // Standard (Flash) Logic
+            else {
+                if (maskImage && referenceImage) {
+                    finalPrompt = `${finalPrompt} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image for the masked area.`;
+                    results = await geminiService.editImageWithMaskAndReference(finalPrompt, sourceImage, maskImage, referenceImage, numberOfImages);
+                } else if (maskImage) {
+                     results = await geminiService.editImageWithMask(finalPrompt, sourceImage, maskImage, numberOfImages);
+                } else if (referenceImage) {
+                    finalPrompt = `${finalPrompt} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
+                    results = await geminiService.editImageWithReference(finalPrompt, sourceImage, referenceImage, numberOfImages);
+                } else {
+                    results = await geminiService.editImage(finalPrompt, sourceImage, numberOfImages);
+                }
             }
 
             const imageUrls = results.map(r => r.imageUrl);
@@ -181,6 +211,8 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
                                             <button
                                                 onClick={() => setIsMaskingModalOpen(true)}
                                                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                                                disabled={resolution !== 'Standard'}
+                                                title={resolution !== 'Standard' ? "Chế độ chất lượng cao sẽ tự động xử lý toàn bộ ảnh để đảm bảo sự đồng nhất" : "Vẽ vùng chọn"}
                                             >
                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>
                                                 {maskImage ? 'Sửa vùng chọn' : 'Vẽ vùng chọn'}
@@ -196,6 +228,7 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
                                             )}
                                         </div>
                                         {maskImage && <p className="text-xs text-green-500 dark:text-green-400 mt-2">Đã áp dụng vùng chọn.</p>}
+                                        {resolution !== 'Standard' && <p className="text-xs text-yellow-500 mt-1">Lưu ý: Chế độ 2K/4K sẽ cải tạo toàn bộ ảnh để đạt chất lượng tốt nhất.</p>}
                                     </div>
                                 )}
                             </div>
@@ -248,8 +281,17 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
                             </div>
                              <div className="flex-grow"></div>
                              <div className="space-y-4">
-                                <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
-                                <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                                    </div>
+                                    <div>
+                                        <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
+                                </div>
                              </div>
 
                              <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mt-4 mb-2 border border-gray-200 dark:border-gray-700">

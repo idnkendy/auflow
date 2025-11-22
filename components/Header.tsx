@@ -104,8 +104,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                     <div className="flex items-center gap-3">
                          {/* Credits */}
                         <div 
-                            className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-[#2a1a35] text-purple-700 dark:text-[#DA70D6] rounded-full text-sm font-semibold border border-purple-200 dark:border-[#DA70D6]/30 cursor-pointer hover:bg-purple-100 dark:hover:bg-[#3a2a45] transition-colors" 
-                            onClick={() => setIsDropdownOpen(true)}
+                            className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-[#2a1a35] text-purple-700 dark:text-[#DA70D6] rounded-full text-sm font-semibold border border-purple-200 dark:border-[#DA70D6]/30 cursor-default transition-colors" 
                             title="Số dư Credits"
                         >
                             <CoinIcon />
@@ -160,25 +159,6 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                              </div>
                                              <span>{userStatus.credits}</span>
                                         </div>
-                                        
-                                        {userStatus.subscriptionEnd ? (
-                                            <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border ${
-                                                userStatus.isExpired 
-                                                ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/50' 
-                                                : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/50'
-                                            }`}>
-                                                <ClockIcon />
-                                                {userStatus.isExpired ? (
-                                                    <span className="font-bold">Gói tháng đã hết hạn</span>
-                                                ) : (
-                                                    <span>VIP đến: {new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                                                )}
-                                            </div>
-                                        ) : (
-                                             <div className="text-xs text-text-secondary dark:text-gray-400 px-1">
-                                                Chưa đăng ký gói VIP
-                                             </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
@@ -189,7 +169,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                         onClick={() => { onOpenProfile(); setIsDropdownOpen(false); }}
                                         className="w-full text-left px-4 py-2.5 text-sm text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#302839] hover:text-text-primary dark:hover:text-white flex items-center gap-3"
                                     >
-                                        <ProfileIcon /> Gói cước & Hồ sơ
+                                        <ProfileIcon /> Hồ sơ cá nhân
                                     </button>
                                 )}
 

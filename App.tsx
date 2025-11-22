@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './services/supabaseClient';
@@ -185,7 +186,7 @@ const App: React.FC = () => {
       if (session) {
           setView('app');
           setActiveTool(Tool.Pricing);
-          handleToolStateChange(Tool.Pricing, { activeTab: 'plans' });
+          handleToolStateChange(Tool.Pricing, { activeTab: 'profile' }); // Modified to default to profile
       } else {
           // If not logged in, go to public pricing page
           setView('pricing');
@@ -196,8 +197,8 @@ const App: React.FC = () => {
       if (session) {
           setView('app');
           setActiveTool(Tool.Pricing);
-          // Updated: Default to 'plans' when opening profile from header
-          handleToolStateChange(Tool.Pricing, { activeTab: 'plans' });
+          // Updated: Default to 'profile' when opening profile from header
+          handleToolStateChange(Tool.Pricing, { activeTab: 'profile' });
       }
   }
 
@@ -374,7 +375,7 @@ const App: React.FC = () => {
         return session ? (
             <UserProfile 
                 session={session} 
-                initialTab={toolStates.Pricing.activeTab || 'plans'} 
+                initialTab={toolStates.Pricing.activeTab || 'profile'} // Changed default to profile
                 onTabChange={(tab) => handleToolStateChange(Tool.Pricing, { activeTab: tab })}
                 onPurchaseSuccess={fetchUserStatus}
             /> 

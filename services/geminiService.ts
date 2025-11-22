@@ -4,19 +4,26 @@ import { AspectRatio, FileData, ImageResolution } from "../types";
 import { supabase } from "./supabaseClient";
 import { updateJobApiKey } from "./jobService";
 
+// --- HELPER: Safe Environment Variable Access ---
+const getEnvironmentApiKey = (): string | undefined => {
+    try {
+        // @ts-ignore
+        return typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
+    } catch (e) {
+        return undefined;
+    }
+};
+
 // --- HELPER: Parse Error Object Robustly ---
-// Fixes issue where Vercel/Production returns different error structures
 const getErrorDetails = (error: any) => {
     let status = error.status || error.response?.status;
     let message = error.message || '';
 
-    // Handle nested Google API error structure
     if (error.error) {
         if (error.error.code) status = error.error.code;
         if (error.error.message) message = error.error.message;
     }
     
-    // Try to find status in the body if it's a fetch response error
     if (error.body) {
         try {
              const body = JSON.parse(error.body);
@@ -27,7 +34,6 @@ const getErrorDetails = (error: any) => {
         } catch (e) {}
     }
 
-    // Try parsing message if it's a JSON string (Common in Vercel logs)
     if (typeof message === 'string') {
         if (message.startsWith('{') || message.startsWith('[')) {
             try {
@@ -39,7 +45,6 @@ const getErrorDetails = (error: any) => {
             } catch (e) {}
         }
         
-        // Fallback regex for status codes in text
         if (!status) {
             if (message.includes('429') || message.toLowerCase().includes('quota') || message.toLowerCase().includes('exhausted')) {
                 status = 429;
@@ -57,11 +62,10 @@ const getErrorDetails = (error: any) => {
     };
 };
 
-// --- HELPER: Report Bad Key to Supabase ---
 const markKeyAsExhausted = async (key: string) => {
     try {
-        // Only mark if it's NOT the env key (though we don't use env key anymore, safety check)
-        if (key && key !== process.env.API_KEY) {
+        const envKey = getEnvironmentApiKey();
+        if (key && key !== envKey) {
             console.warn(`[GeminiService] Marking key ...${key.slice(-4)} as exhausted.`);
             await supabase.rpc('mark_key_exhausted', { key_val: key });
         }
@@ -70,19 +74,17 @@ const markKeyAsExhausted = async (key: string) => {
     }
 };
 
-// --- HELPER: Get Client (STRICT SUPABASE ONLY) ---
 const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: string }> => {
     try {
         if (!supabase) {
             throw new Error("SYSTEM_BUSY"); 
         }
 
-        // Call RPC to get the next available key
         const { data: apiKey, error } = await supabase.rpc('get_worker_key');
 
         if (error || !apiKey) {
             console.warn("[GeminiService] Supabase get_worker_key failed or empty:", error?.message);
-            throw new Error("SYSTEM_BUSY"); // Signal to retry loop that DB is empty
+            throw new Error("SYSTEM_BUSY");
         }
 
         if (jobId) {
@@ -94,12 +96,10 @@ const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: stri
             key: apiKey
         };
     } catch (e: any) {
-        // Propagate error to be handled by retry logic
         throw e;
     }
 };
 
-// --- SMART RETRY LOGIC (CORE ROTATION + EXPONENTIAL BACKOFF) ---
 async function withSmartRetry<T>(
     operation: (ai: GoogleGenAI, currentKey: string) => Promise<T>, 
     jobId?: string,
@@ -114,19 +114,15 @@ async function withSmartRetry<T>(
         let currentKey = "";
 
         try {
-            // 1. Get Client
             const client = await getAIClient(jobId);
             currentKey = client.key;
 
-            // Prevention: If DB gives back a key we just failed on locally, skip it and ask DB again
             if (failedKeys.has(currentKey)) {
-                 // Optional: Mark it again just to be sure DB knows
                  await markKeyAsExhausted(currentKey); 
                  attempts++;
                  continue; 
             }
 
-            // 2. Execute
             const result = await operation(client.ai, currentKey);
             return result;
 
@@ -134,13 +130,10 @@ async function withSmartRetry<T>(
              const { status, message } = getErrorDetails(error);
              lastError = error;
              
-             // console.warn(`[GeminiService] Attempt ${attempts + 1} failed. Status: ${status}. Key: ...${currentKey?.slice(-4)}`);
-
              const isQuota = status === 429 || message.includes('quota') || message.includes('exhausted') || message.includes('429');
              const isBilling = status === 400 && (message.includes('billed users') || message.includes('billing') || message.includes('credits'));
              const isSystemBusy = message === "SYSTEM_BUSY";
 
-             // Case A: No Keys in DB (All used up)
              if (isSystemBusy) {
                  console.warn("[GeminiService] No keys available. Waiting 3s before retry...");
                  await new Promise(r => setTimeout(r, 3000));
@@ -148,22 +141,16 @@ async function withSmartRetry<T>(
                  continue; 
              }
 
-             // Case B: Quota / Rate Limit (429)
              if (isQuota) {
                  consecutiveQuotaErrors++;
-                 
-                 // Mark key as bad in DB
                  if (currentKey) {
                      await markKeyAsExhausted(currentKey);
                      failedKeys.add(currentKey);
                  }
-
-                 // Exponential Backoff with Jitter to bypass Vercel Shared IP blocks
-                 // Delay = (2000 * 1.5^attempts) + Random(0-1000ms)
                  const baseDelay = 2000; 
                  const backoff = Math.pow(1.5, consecutiveQuotaErrors); 
                  const jitter = Math.random() * 1000;
-                 const delay = Math.min((baseDelay * backoff) + jitter, 20000); // Cap at 20s
+                 const delay = Math.min((baseDelay * backoff) + jitter, 20000);
 
                  console.warn(`[GeminiService] Rate limit (429). Key exhausted. Pausing for ${Math.round(delay)}ms...`);
                  await new Promise(r => setTimeout(r, delay));
@@ -172,25 +159,21 @@ async function withSmartRetry<T>(
                  continue; 
              }
              
-             // Case C: Billing Error (400) on specific model
-             // DO NOT mark as exhausted. Throw to trigger fallback model (Flash).
              if (isBilling) {
                  console.warn(`[GeminiService] Key ...${currentKey?.slice(-4)} has billing restriction (400). Triggering Fallback.`);
                  throw error;
              }
              
-             // Reset quota counter if error is unrelated (e.g. 500)
              consecutiveQuotaErrors = 0;
 
-             // Case D: Server Errors (500, 503)
              if (status === 503 || status === 500) {
                  attempts++;
                  await new Promise(r => setTimeout(r, 2000));
                  continue;
              }
 
-             // Case E: Other Errors
              if (!status) {
+                 console.warn(`[GeminiService] Network or unknown error. Retrying...`);
                  attempts++; 
                  await new Promise(r => setTimeout(r, 1000));
                  continue;
@@ -205,8 +188,61 @@ async function withSmartRetry<T>(
 
 // --- GENERATION FUNCTIONS ---
 
+// Standard "Nano Banana Flash" (gemini-2.5-flash-image)
+export const generateStandardImage = async (
+    prompt: string, 
+    aspectRatio: AspectRatio, 
+    numberOfImages: number = 1, 
+    sourceImage?: FileData,
+    jobId?: string
+): Promise<string[]> => {
+    console.log("[GeminiService] Generating Standard Image (Nano Banana Flash)");
+    return withSmartRetry(async (ai) => {
+        const parts: any[] = [];
+        
+        // Source Image for Edit/Variation
+        if (sourceImage) {
+            parts.push({
+                inlineData: {
+                    mimeType: sourceImage.mimeType,
+                    data: sourceImage.base64
+                }
+            });
+        }
+        
+        parts.push({ text: prompt });
+
+        const promises = Array.from({ length: numberOfImages }).map(async () => {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts },
+                config: { 
+                    responseModalities: [Modality.IMAGE],
+                    // Note: 2.5-flash-image supports aspectRatio but not imageSize
+                    imageConfig: { aspectRatio: aspectRatio } 
+                },
+            });
+            
+            let imageUrl = '';
+            // Iterate through parts to find image
+            if (response.candidates?.[0]?.content?.parts) {
+                for (const part of response.candidates[0].content.parts) {
+                    if (part.inlineData) {
+                        imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                    }
+                }
+            }
+            
+            if (!imageUrl) throw new Error("No image data returned from Standard Model");
+            return imageUrl;
+        });
+        return Promise.all(promises);
+    }, jobId);
+};
+
+// Fallback using legacy Imagen
 const generateImageFallback = async (prompt: string, numberOfImages: number, jobId?: string): Promise<string[]> => {
-    console.warn(`[GeminiService] Triggering Fallback to Flash Model`);
+    console.warn(`[GeminiService] Triggering Fallback`);
     return withSmartRetry(async (ai) => {
         const parts = [{ text: prompt }];
         const promises = Array.from({ length: numberOfImages }).map(async () => {
@@ -225,9 +261,10 @@ const generateImageFallback = async (prompt: string, numberOfImages: number, job
     }, jobId);
 };
 
+// Legacy Imagen export - kept for compatibility but mapped to standard generation flows often
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio, numberOfImages: number = 1, jobId?: string): Promise<string[]> => {
+    // We prefer the standard image function for "Nano Banana" compliance, but this exists for generic calls
     try {
-        // Try High Quality Model First
         return await withSmartRetry(async (ai) => {
             const response = await ai.models.generateImages({
                 model: 'imagen-4.0-generate-001',
@@ -243,84 +280,89 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
         }, jobId);
 
     } catch (error: any) {
-        const { status, message } = getErrorDetails(error);
-        // Fallback check: If billing (400) or quota (429) persists on HQ model, switch to Flash
-        if ((status === 400 && (message.includes('billed users') || message.includes('billing'))) || status === 429) {
-            return await generateImageFallback(prompt, numberOfImages, jobId);
-        }
-        throw error;
+        return await generateImageFallback(prompt, numberOfImages, jobId);
     }
 };
 
-// --- NEW: High Quality 2K/4K Generation with Gemini 3.0 Pro ---
-// Must use user's own key via window.aistudio
+// --- Nano Banana Pro (Gemini 3.0 Pro) ---
+// Supports 1K, 2K, 4K
 export const generateHighQualityImage = async (
     prompt: string, 
     aspectRatio: AspectRatio, 
-    resolution: '2K' | '4K',
+    resolution: ImageResolution,
     sourceImage?: FileData
 ): Promise<string[]> => {
     
-    // @ts-ignore
-    if (typeof window.aistudio === 'undefined' || typeof window.aistudio.hasSelectedApiKey !== 'function') {
-        throw new Error("Chức năng chọn Key chưa khả dụng trên trình duyệt này.");
-    }
-
-    // @ts-ignore
-    const hasKey = await window.aistudio.hasSelectedApiKey();
-    if (!hasKey) {
+    try {
         // @ts-ignore
-        await window.aistudio.openSelectKey();
-        // Assume success after closing dialog (race condition handling handled by app logic mostly, 
-        // but here we just proceed to create client)
-    }
+        if (typeof window.aistudio === 'undefined' || typeof window.aistudio.hasSelectedApiKey !== 'function') {
+            throw new Error("Chức năng chọn Key chưa khả dụng. Vui lòng sử dụng Project IDX hoặc AI Studio.");
+        }
 
-    // Create client with user's selected key
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        // @ts-ignore
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+            // @ts-ignore
+            await window.aistudio.openSelectKey();
+        }
 
-    const contents: any = { parts: [] };
-    
-    // Handle input parts
-    if (sourceImage) {
-        contents.parts.push({
-            inlineData: {
-                mimeType: sourceImage.mimeType,
-                data: sourceImage.base64
-            }
+        const apiKey = getEnvironmentApiKey();
+        if (!apiKey) {
+            throw new Error("Không tìm thấy API Key. Vui lòng thử lại hoặc làm mới trang.");
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
+
+        const contents: any = { parts: [] };
+        
+        if (sourceImage) {
+            contents.parts.push({
+                inlineData: {
+                    mimeType: sourceImage.mimeType,
+                    data: sourceImage.base64
+                }
+            });
+            contents.parts.push({ text: `${prompt}. Maintain composition from image.` });
+        } else {
+            contents.parts.push({ text: prompt });
+        }
+
+        // Map resolution to API accepted string (1K, 2K, 4K)
+        // If 'Standard' is passed here by mistake, default to 1K
+        const imageSize = (resolution === 'Standard' ? '1K' : resolution) as "1K" | "2K" | "4K";
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-pro-image-preview',
+            contents: contents,
+            config: {
+                imageConfig: {
+                    aspectRatio: aspectRatio,
+                    imageSize: imageSize
+                }
+            },
         });
-        contents.parts.push({ text: `${prompt}. Maintain composition from image.` });
-    } else {
-        contents.parts.push({ text: prompt });
-    }
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-image-preview',
-        contents: contents,
-        config: {
-            imageConfig: {
-                aspectRatio: aspectRatio,
-                imageSize: resolution
-            }
-        },
-    });
-
-    // Extract images
-    const images: string[] = [];
-    if (response.candidates?.[0]?.content?.parts) {
-        for (const part of response.candidates[0].content.parts) {
-            if (part.inlineData) {
-                images.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
-            } else if (part.text) {
-                console.log("Gemini 3.0 Text Output:", part.text);
+        const images: string[] = [];
+        if (response.candidates?.[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+                if (part.inlineData) {
+                    images.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+                }
             }
         }
-    }
 
-    if (images.length === 0) {
-        throw new Error("Gemini 3.0 Pro không trả về hình ảnh. Có thể do nội dung bị chặn hoặc lỗi hệ thống.");
-    }
+        if (images.length === 0) {
+            throw new Error("Gemini 3.0 Pro không trả về hình ảnh. Có thể do nội dung bị chặn.");
+        }
 
-    return images;
+        return images;
+
+    } catch (error: any) {
+        if (error.message === 'Failed to fetch') {
+            throw new Error("Lỗi kết nối mạng hoặc lỗi API Key. Vui lòng kiểm tra lại.");
+        }
+        throw error;
+    }
 };
 
 
@@ -381,9 +423,6 @@ const generateGeminiEdit = async (parts: any[], numberOfImages: number, jobId?: 
             
             if (part?.inlineData) {
                 imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            } else if (part?.text) {
-                 console.warn("Model returned text:", part.text);
-                 throw new Error("Model refused to generate image (Safety/Policy).");
             }
             
             if (!imageUrl) throw new Error("No image returned.");

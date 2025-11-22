@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient';
 import Spinner from '../Spinner';
 import { Logo } from '../common/Logo';
 
 interface AuthPageProps {
   onGoHome: () => void;
-  initialMode: 'login' | 'signup';
+  initialMode: 'login' | 'signup'; // Giữ lại prop để tránh lỗi typescript ở App.tsx, nhưng không sử dụng
 }
 
 const GoogleIcon = () => (
@@ -18,41 +18,18 @@ const GoogleIcon = () => (
     </svg>
 );
 
-const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
-  const [isSignUp, setIsSignUp] = useState(initialMode === 'signup');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const AuthPage: React.FC<AuthPageProps> = ({ onGoHome }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-      setIsSignUp(initialMode === 'signup');
-  }, [initialMode]);
-
-  const handleAuthAction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    const { error } = isSignUp
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      setError(error.message);
-    } else if (isSignUp) {
-      setMessage('Vui lòng kiểm tra email của bạn để xác thực tài khoản.');
-    }
-    setLoading(false);
-  };
-  
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
     });
     if (error) {
         setError(error.message);
@@ -64,83 +41,40 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
     <div className="min-h-screen bg-main-bg dark:bg-gray-900 flex flex-col items-center justify-center p-4 relative font-sans">
         <button onClick={onGoHome} className="absolute top-4 left-4 text-text-secondary dark:text-gray-400 hover:text-accent transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            Back to Home
+            Quay lại trang chủ
         </button>
         <div className="w-full max-w-md">
-            <div className="flex justify-center items-center mb-6">
-                 <Logo className="w-10 h-10 mr-2" />
-                <span className="text-text-primary dark:text-white text-2xl font-bold">Auflow</span>
+            <div className="flex justify-center items-center mb-8">
+                 <Logo className="w-12 h-12 mr-3" />
+                <span className="text-text-primary dark:text-white text-3xl font-bold">Auflow</span>
             </div>
-            <div className="bg-surface dark:bg-dark-bg p-8 rounded-xl shadow-lg border border-border-color dark:border-gray-700">
-                <h2 className="text-2xl font-bold text-center text-text-primary dark:text-white mb-2">{isSignUp ? 'Create Account' : 'Welcome Back'}</h2>
-                <p className="text-center text-text-secondary dark:text-gray-400 mb-6">{isSignUp ? 'Get started with your design journey.' : 'Sign in to continue.'}</p>
+            <div className="bg-surface dark:bg-dark-bg p-8 rounded-2xl shadow-xl border border-border-color dark:border-gray-700 text-center">
+                <h2 className="text-2xl font-bold text-center text-text-primary dark:text-white mb-3">Xin chào!</h2>
+                <p className="text-center text-text-secondary dark:text-gray-400 mb-8">Đăng nhập để bắt đầu sáng tạo không giới hạn.</p>
                 
                 {!isSupabaseConfigured && (
-                    <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-500 dark:text-yellow-300 rounded-r-lg">
+                    <div className="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-500 dark:text-yellow-300 rounded-r-lg text-left">
                         <p className="font-bold">Cấu hình còn thiếu!</p>
-                        <p className="text-sm">Chức năng đăng nhập chưa được kích hoạt. Vui lòng mở tệp <code className="font-mono bg-yellow-200 dark:bg-yellow-800/50 p-1 rounded">services/supabaseClient.ts</code> và điền khóa API của bạn.</p>
+                        <p className="text-sm">Chức năng đăng nhập chưa được kích hoạt. Vui lòng kiểm tra file cấu hình Supabase.</p>
                     </div>
                 )}
-                {error && <div className="mb-4 p-3 bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
-                {message && <div className="mb-4 p-3 bg-green-100 border-green-400 text-green-700 dark:bg-green-900/50 dark:border-green-500 dark:text-green-300 rounded-lg text-sm">{message}</div>}
-
-                <form onSubmit={handleAuthAction} className="space-y-4">
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Email</label>
-                        <input
-                            id="email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-main-bg dark:bg-gray-700/50 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:outline-none transition-all disabled:opacity-50"
-                            placeholder="you@example.com"
-                            required
-                            disabled={!isSupabaseConfigured}
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="password"className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Password</label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-main-bg dark:bg-gray-700/50 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:outline-none transition-all disabled:opacity-50"
-                            placeholder="••••••••"
-                            required
-                            disabled={!isSupabaseConfigured}
-                        />
-                         {isSignUp && <p className="text-xs text-text-secondary dark:text-gray-500 mt-1">Mật khẩu phải có ít nhất 6 ký tự.</p>}
-                    </div>
-                     <button
-                        type="submit"
-                        disabled={loading || !isSupabaseConfigured}
-                        className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
-                    >
-                       {loading ? <Spinner /> : (isSignUp ? 'Sign Up' : 'Sign In')}
-                    </button>
-                </form>
-
-                <div className="my-6 flex items-center">
-                    <div className="flex-grow border-t border-border-color dark:border-gray-700"></div>
-                    <span className="flex-shrink mx-4 text-xs text-text-secondary dark:text-gray-500">OR</span>
-                    <div className="flex-grow border-t border-border-color dark:border-gray-700"></div>
-                </div>
+                {error && <div className="mb-6 p-3 bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
 
                 <button
                   onClick={handleGoogleSignIn}
                   disabled={loading || !isSupabaseConfigured}
-                  className="w-full flex justify-center items-center gap-3 bg-surface dark:bg-gray-700/50 border border-border-color dark:border-gray-600 hover:bg-main-bg dark:hover:bg-gray-800 text-text-primary dark:text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex justify-center items-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3.5 px-4 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 shadow-sm hover:shadow-md"
                 >
-                  <GoogleIcon />
-                  <span>{isSignUp ? 'Sign up with Google' : 'Sign in with Google'}</span>
+                  {loading ? <Spinner /> : (
+                      <>
+                        <GoogleIcon />
+                        <span>Tiếp tục với Google</span>
+                      </>
+                  )}
                 </button>
-
-                <p className="mt-6 text-center text-sm text-text-secondary dark:text-gray-400">
-                    {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-                    <button onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); }} className="font-semibold text-accent hover:underline" disabled={!isSupabaseConfigured}>
-                        {isSignUp ? 'Sign In' : 'Sign Up'}
-                    </button>
+                
+                <p className="mt-6 text-xs text-text-secondary dark:text-gray-500">
+                    Bằng việc tiếp tục, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi.
                 </p>
             </div>
         </div>

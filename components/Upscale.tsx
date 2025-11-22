@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileData, Tool } from '../types';
+import { FileData, Tool, ImageResolution } from '../types';
 import { UpscaleState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -10,6 +10,7 @@ import ImageComparator from './ImageComparator';
 import NumberOfImagesSelector from './common/NumberOfImagesSelector';
 import ResultGrid from './common/ResultGrid';
 import ImagePreviewModal from './common/ImagePreviewModal';
+import ResolutionSelector from './common/ResolutionSelector';
 
 interface UpscaleProps {
     state: UpscaleState;
@@ -19,12 +20,26 @@ interface UpscaleProps {
 }
 
 const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { sourceImage, isLoading, error, upscaledImages, numberOfImages } = state;
+    const { sourceImage, isLoading, error, upscaledImages, numberOfImages, resolution } = state;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const upscalePrompt = "Upscale this image to a high resolution. Enhance the details, textures, and lighting to make it look photorealistic and professional. Do not change the composition or the core design.";
     
-    // Dynamic cost calculation: 5 credits per image
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleUpscale = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -40,10 +55,24 @@ const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits = 0
 
         try {
              if (onDeductCredits) {
-                await onDeductCredits(cost, `Upscale ảnh (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `Upscale ảnh (${numberOfImages} ảnh) - ${resolution}`);
             }
 
-            const results = await geminiService.editImage(upscalePrompt, sourceImage, numberOfImages);
+            let results: { imageUrl: string }[] = [];
+
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    const images = await geminiService.generateHighQualityImage(upscalePrompt, '1:1', resolution, sourceImage || undefined);
+                    return { imageUrl: images[0] };
+                });
+                results = await Promise.all(promises);
+            } 
+            // Standard (Flash) Logic
+            else {
+                results = await geminiService.editImage(upscalePrompt, sourceImage, numberOfImages);
+            }
+
             const imageUrls = results.map(r => r.imageUrl);
             onStateChange({ upscaledImages: imageUrls });
 
@@ -90,6 +119,10 @@ const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits = 0
                     </div>
                      <div className="w-full max-w-lg mt-6">
                         <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                    </div>
+                    
+                    <div className="w-full max-w-lg mt-6">
+                        <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
                     </div>
 
                     <div className="w-full max-w-lg mt-6">

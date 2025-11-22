@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileData, Tool } from '../types';
+import { FileData, Tool, ImageResolution } from '../types';
 import { FloorPlanState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -10,6 +10,7 @@ import ImageComparator from './ImageComparator';
 import NumberOfImagesSelector from './common/NumberOfImagesSelector';
 import ResultGrid from './common/ResultGrid';
 import ImagePreviewModal from './common/ImagePreviewModal';
+import ResolutionSelector from './common/ResolutionSelector';
 
 const SparklesIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -25,7 +26,7 @@ interface FloorPlanProps {
 }
 
 const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { prompt, layoutPrompt, sourceImage, referenceImage, isLoading, error, resultImages, numberOfImages, renderMode, planType } = state;
+    const { prompt, layoutPrompt, sourceImage, referenceImage, isLoading, error, resultImages, numberOfImages, renderMode, planType, resolution } = state;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
 
@@ -51,8 +52,22 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
         }
     };
 
-    // Update Cost: 5 credits per image
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -69,12 +84,13 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
         try {
             // Deduct credits
             if (onDeductCredits) {
-                await onDeductCredits(cost, `Render mặt bằng (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `Render mặt bằng (${numberOfImages} ảnh) - ${resolution}`);
             }
 
             let fullPrompt = '';
-            let results;
+            let results: any[] = [];
 
+            // --- Prompt Construction ---
             if (renderMode === 'top-down') {
                  if (!prompt) {
                     onStateChange({ error: 'Vui lòng nhập mô tả phong cách.', isLoading: false });
@@ -86,8 +102,6 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                 } else { // exterior
                     fullPrompt = `From this 2D architectural floor plan, generate a photorealistic 3D top-down view showing the building's exterior, including the roof, walls, and immediate surroundings like a garden or driveway. Adhere strictly to the floor plan's layout for the building's structure. Do not show the interior. Apply the following style for the exterior materials, roof, and landscape: ${prompt}`;
                 }
-                results = await geminiService.editImage(fullPrompt, sourceImage, numberOfImages);
-
             } else { // perspective mode
                  if (!layoutPrompt?.trim()) {
                     onStateChange({ error: 'Vui lòng nhập mô tả chi tiết về góc nhìn và phong cách.', isLoading: false});
@@ -95,21 +109,34 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                 }
                 
                  if (planType === 'interior') {
+                    fullPrompt = `Dựa vào hình ảnh mặt bằng được cung cấp, hãy tạo ra một góc nhìn phối cảnh 3D nội thất chân thực, tầm nhìn ngang mắt người. Vui lòng thực hiện theo mô tả chi tiết về góc nhìn và phong cách sau: "${layoutPrompt}".`;
                     if (referenceImage) {
-                        fullPrompt = `Dựa vào hình ảnh mặt bằng được cung cấp, hãy tạo ra một góc nhìn phối cảnh 3D nội thất chân thực, tầm nhìn ngang mắt người. Vui lòng thực hiện theo mô tả chi tiết về góc nhìn và phong cách sau: "${layoutPrompt}". Đồng thời, hãy lấy cảm hứng về phong cách, vật liệu và không khí từ ảnh tham chiếu được cung cấp.`;
-                        results = await geminiService.editImageWithReference(fullPrompt, sourceImage, referenceImage, numberOfImages);
-                    } else {
-                        fullPrompt = `Dựa vào hình ảnh mặt bằng được cung cấp, hãy tạo ra một góc nhìn phối cảnh 3D nội thất chân thực, tầm nhìn ngang mắt người. Vui lòng thực hiện theo mô tả chi tiết về góc nhìn và phong cách sau: "${layoutPrompt}".`;
-                        results = await geminiService.editImage(fullPrompt, sourceImage, numberOfImages);
+                        fullPrompt += ` Đồng thời, hãy lấy cảm hứng về phong cách, vật liệu và không khí từ ảnh tham chiếu được cung cấp.`;
                     }
                 } else { // exterior
+                    fullPrompt = `From this 2D architectural floor plan, generate a photorealistic 3D exterior perspective view (eye-level). Adhere strictly to the floor plan's layout for the building's shape. Apply the following style for materials, context, and lighting: "${layoutPrompt}".`;
                     if (referenceImage) {
-                        fullPrompt = `From this 2D architectural floor plan, generate a photorealistic 3D exterior perspective view (eye-level). Adhere strictly to the floor plan's layout for the building's shape. Apply the following style for materials, context, and lighting: "${layoutPrompt}". Also, take aesthetic inspiration from the provided reference image.`;
-                        results = await geminiService.editImageWithReference(fullPrompt, sourceImage, referenceImage, numberOfImages);
-                    } else {
-                        fullPrompt = `From this 2D architectural floor plan, generate a photorealistic 3D exterior perspective view (eye-level). Adhere strictly to the floor plan's layout for the building's shape. Apply the following style for materials, context, and lighting: "${layoutPrompt}".`;
-                        results = await geminiService.editImage(fullPrompt, sourceImage, numberOfImages);
+                        fullPrompt += ` Also, take aesthetic inspiration from the provided reference image.`;
                     }
+                }
+            }
+
+            // --- Generation Logic ---
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    // We map sourceImage to be the primary image input for generateHighQualityImage
+                    const images = await geminiService.generateHighQualityImage(fullPrompt, '4:3', resolution, sourceImage || undefined);
+                    return { imageUrl: images[0] };
+                });
+                results = await Promise.all(promises);
+            } 
+            // Standard (Flash) Logic
+            else {
+                if (referenceImage && renderMode === 'perspective') {
+                     results = await geminiService.editImageWithReference(fullPrompt, sourceImage, referenceImage, numberOfImages);
+                } else {
+                     results = await geminiService.editImage(fullPrompt, sourceImage, numberOfImages);
                 }
             }
 
@@ -268,6 +295,9 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                             <div className="flex-grow"></div>
                             <div className="pt-2">
                                 <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                            </div>
+                            <div className="pt-2">
+                                <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
                             </div>
 
                              <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mt-4 mb-2 border border-gray-200 dark:border-gray-700">
