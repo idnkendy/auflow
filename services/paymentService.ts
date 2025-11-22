@@ -5,6 +5,27 @@ import { supabase } from "./supabaseClient";
 // Mock API response delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper function for retrying operations
+const withRetry = async <T>(operation: () => Promise<T>, maxRetries: number = 3, delayMs: number = 1000): Promise<T> => {
+    let lastError: any;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await operation();
+        } catch (error: any) {
+            lastError = error;
+            // Check if it's a fetch error or network error
+            const isNetworkError = error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError');
+            if (isNetworkError || i < maxRetries - 1) {
+                console.warn(`Operation failed (attempt ${i + 1}/${maxRetries}). Retrying in ${delayMs}ms...`, error.message);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            } else {
+                throw error;
+            }
+        }
+    }
+    throw lastError;
+};
+
 export interface PaymentResult {
     success: boolean;
     message: string;
@@ -24,7 +45,7 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
 
     if (isSuccess) {
         // 3. Record Transaction (History log)
-        const { error: txError } = await supabase
+        const { error: txError } = await withRetry<any>(() => supabase
             .from('transactions')
             .insert({
                 user_id: userId,
@@ -37,7 +58,7 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
                 status: 'completed',
                 payment_method: paymentMethod,
                 transaction_code: transactionCode
-            });
+            }));
 
         if (txError) {
             console.error("Error saving transaction:", txError);
@@ -47,11 +68,11 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
         // 4. Update Profile (Source of Truth) - Logic cộng dồn
         
         // Lấy profile hiện tại
-        const { data: currentProfile } = await supabase
+        const { data: currentProfile } = await withRetry<any>(() => supabase
             .from('profiles')
             .select('*')
             .eq('id', userId)
-            .maybeSingle();
+            .maybeSingle());
 
         const updates: any = { 
             id: userId,
@@ -98,9 +119,9 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
              updates.email = user?.email;
         }
 
-        const { error: updateError } = await supabase
+        const { error: updateError } = await withRetry<any>(() => supabase
             .from('profiles')
-            .upsert(updates, { onConflict: 'id' });
+            .upsert(updates, { onConflict: 'id' }));
 
         if (updateError) {
             console.error("Error updating profile:", updateError);
@@ -118,61 +139,70 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
 };
 
 export const getTransactionHistory = async (): Promise<Transaction[]> => {
-    const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
+    try {
+        const { data, error } = await withRetry<any>(() => supabase
+            .from('transactions')
+            .select('*')
+            .order('created_at', { ascending: false }));
 
-    if (error) {
-        console.error("Error fetching transactions:", error);
+        if (error) {
+            console.error("Error fetching transactions:", error);
+            return [];
+        }
+
+        return data as Transaction[];
+    } catch (e) {
+        console.error("Failed to load history:", e);
         return [];
     }
-
-    return data as Transaction[];
 };
 
 export const getUserStatus = async (userId: string): Promise<UserStatus> => {
     let currentCredits = 0;
     let subscriptionEnd: string | null = null;
     
-    // 1. Get Data directly from PROFILES table
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('credits, subscription_end')
-        .eq('id', userId)
-        .maybeSingle();
+    try {
+        // 1. Get Data directly from PROFILES table
+        const { data: profile, error: profileError } = await withRetry<any>(() => supabase
+            .from('profiles')
+            .select('credits, subscription_end')
+            .eq('id', userId)
+            .maybeSingle());
 
-    if (profile) {
-        currentCredits = profile.credits;
-        subscriptionEnd = profile.subscription_end;
-    } else {
-        // Init profile for new user
-        console.log("Profile not found in getUserStatus, initializing...");
-        currentCredits = 50; // NEW USER BONUS: 50 Credits
-        
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            // Race condition handling: try insert, if fail (exists), then select again
-            const { error: insertError } = await supabase.from('profiles').upsert({
-                id: userId,
-                email: user.email,
-                credits: currentCredits,
-                subscription_end: null
-            }, { onConflict: 'id' });
+        if (profile) {
+            currentCredits = profile.credits;
+            subscriptionEnd = profile.subscription_end;
+        } else {
+            // Init profile for new user
+            console.log("Profile not found in getUserStatus, initializing...");
+            currentCredits = 50; // NEW USER BONUS: 50 Credits
             
-            if (insertError) {
-                 console.log("Profile init race condition (normal), retrying fetch...");
-                 const { data: retryProfile } = await supabase
-                    .from('profiles')
-                    .select('credits, subscription_end')
-                    .eq('id', userId)
-                    .maybeSingle();
-                 if (retryProfile) {
-                     currentCredits = retryProfile.credits;
-                     subscriptionEnd = retryProfile.subscription_end;
-                 }
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // Race condition handling: try insert, if fail (exists), then select again
+                const { error: insertError } = await withRetry<any>(() => supabase.from('profiles').upsert({
+                    id: userId,
+                    email: user.email,
+                    credits: currentCredits,
+                    subscription_end: null
+                }, { onConflict: 'id' }));
+                
+                if (insertError) {
+                     console.log("Profile init race condition (normal), retrying fetch...");
+                     const { data: retryProfile } = await withRetry<any>(() => supabase
+                        .from('profiles')
+                        .select('credits, subscription_end')
+                        .eq('id', userId)
+                        .maybeSingle());
+                     if (retryProfile) {
+                         currentCredits = retryProfile.credits;
+                         subscriptionEnd = retryProfile.subscription_end;
+                     }
+                }
             }
         }
+    } catch (e) {
+        console.warn("Error getting user status (using defaults):", e);
     }
 
     // 2. Check Expiry based on stored date
@@ -189,79 +219,92 @@ export const getUserStatus = async (userId: string): Promise<UserStatus> => {
 };
 
 export const deductCredits = async (userId: string, amount: number, description: string = 'Sử dụng tính năng AI'): Promise<string> => {
-    // 1. Get current balance and ensure profile exists
-    let status = await getUserStatus(userId); 
-    let currentCredits = status.credits;
-
-    if (currentCredits < amount) {
-        throw new Error(`Không đủ Credits. Bạn cần ${amount} credits nhưng chỉ còn ${currentCredits}.`);
-    }
-
-    // 2. Record Usage Log
-    // IMPORTANT: Using .select('id').single() to get the ID for job linking
-    const { data: logData, error: logError } = await supabase
-        .from('usage_logs')
-        .insert({
-            user_id: userId,
-            credits_used: amount,
-            description: description,
-        })
-        .select('id')
-        .single();
-
-    if (logError) {
-        console.error("Error logging usage:", JSON.stringify(logError));
-        throw new Error("Lỗi hệ thống khi ghi nhận giao dịch.");
-    }
-
-    // 3. Deduct from Profile
-    const newBalance = currentCredits - amount;
-    const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-            credits: newBalance,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-
-    if (updateError) {
-        console.error("Error updating balance:", updateError);
-        // Critical consistency error, but log exists.
-        throw new Error("Lỗi cập nhật số dư: " + updateError.message);
-    }
-
-    return logData.id;
-};
-
-export const refundCredits = async (userId: string, amount: number, description: string = 'Hoàn tiền do lỗi hệ thống'): Promise<void> => {
-    try {
-        // 1. Get current balance
+    // Wrapped in retry logic to prevent "Failed to fetch" errors from stopping the flow
+    return withRetry(async () => {
+        // 1. Get current balance and ensure profile exists
+        // We call getUserStatus inside here but carefully as to not create infinite loops or heavy load
+        // For atomicity, normally we'd use a stored procedure or RLS check, but here we check client side first.
+        
         const { data: profile } = await supabase
             .from('profiles')
             .select('credits')
             .eq('id', userId)
             .single();
+            
+        const currentCredits = profile?.credits ?? 0;
 
-        if (!profile) return;
+        if (currentCredits < amount) {
+            throw new Error(`Không đủ Credits. Bạn cần ${amount} credits nhưng chỉ còn ${currentCredits}.`);
+        }
 
-        // 2. Add credits back
-        const newBalance = profile.credits + amount;
-        await supabase
-            .from('profiles')
-            .update({ 
-                credits: newBalance, 
-                updated_at: new Date().toISOString() 
-            })
-            .eq('id', userId);
-
-        // 3. Log negative usage to reflect refund
-        await supabase
+        // 2. Record Usage Log
+        // IMPORTANT: Using .select('id').single() to get the ID for job linking
+        const { data: logData, error: logError } = await supabase
             .from('usage_logs')
             .insert({
                 user_id: userId,
-                credits_used: -amount, // Negative indicates refund
+                credits_used: amount,
                 description: description,
-            });
+            })
+            .select('id')
+            .single();
+
+        if (logError) {
+            console.error("Error logging usage:", JSON.stringify(logError));
+            throw new Error("Lỗi hệ thống khi ghi nhận giao dịch: " + logError.message);
+        }
+
+        // 3. Deduct from Profile
+        const newBalance = currentCredits - amount;
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ 
+                credits: newBalance,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+
+        if (updateError) {
+            console.error("Error updating balance:", updateError);
+            // Critical consistency error, but log exists.
+            throw new Error("Lỗi cập nhật số dư: " + updateError.message);
+        }
+
+        return logData.id;
+    });
+};
+
+export const refundCredits = async (userId: string, amount: number, description: string = 'Hoàn tiền do lỗi hệ thống'): Promise<void> => {
+    try {
+        await withRetry(async () => {
+            // 1. Get current balance
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('credits')
+                .eq('id', userId)
+                .single();
+
+            if (!profile) return;
+
+            // 2. Add credits back
+            const newBalance = profile.credits + amount;
+            await supabase
+                .from('profiles')
+                .update({ 
+                    credits: newBalance, 
+                    updated_at: new Date().toISOString() 
+                })
+                .eq('id', userId);
+
+            // 3. Log negative usage to reflect refund
+            await supabase
+                .from('usage_logs')
+                .insert({
+                    user_id: userId,
+                    credits_used: -amount, // Negative indicates refund
+                    description: description,
+                });
+        });
             
         console.log(`Refunded ${amount} credits to ${userId}`);
     } catch (e) {

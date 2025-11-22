@@ -8,7 +8,12 @@ import { updateJobApiKey } from "./jobService";
 const getEnvironmentApiKey = (): string | undefined => {
     try {
         // @ts-ignore
-        return typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            // @ts-ignore
+            return process.env.API_KEY;
+        }
+        // Fallback or safe check
+        return undefined;
     } catch (e) {
         return undefined;
     }
@@ -308,10 +313,15 @@ export const generateHighQualityImage = async (
 
         const apiKey = getEnvironmentApiKey();
         if (!apiKey) {
-            throw new Error("Không tìm thấy API Key. Vui lòng thử lại hoặc làm mới trang.");
+            // Wait a moment for the key to potentially propagate if just selected
+            await new Promise(r => setTimeout(r, 500));
+            const retryKey = getEnvironmentApiKey();
+            if (!retryKey) {
+                 throw new Error("Không tìm thấy API Key. Vui lòng thử lại hoặc làm mới trang.");
+            }
         }
 
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey: getEnvironmentApiKey() });
 
         const contents: any = { parts: [] };
         
@@ -358,8 +368,9 @@ export const generateHighQualityImage = async (
         return images;
 
     } catch (error: any) {
-        if (error.message === 'Failed to fetch') {
-            throw new Error("Lỗi kết nối mạng hoặc lỗi API Key. Vui lòng kiểm tra lại.");
+        // Catch 'Failed to fetch' specifically
+        if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+            throw new Error("Lỗi kết nối mạng hoặc lỗi API Key. Vui lòng kiểm tra kết nối và thử lại.");
         }
         throw error;
     }
