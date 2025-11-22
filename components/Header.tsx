@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserStatus } from '../types';
 import { User } from '@supabase/supabase-js';
+import { Logo } from './common/Logo';
 
 const SunIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -11,12 +12,6 @@ const SunIcon = () => (
 const MoonIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-    </svg>
-);
-
-const UserIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
     </svg>
 );
 
@@ -56,14 +51,6 @@ const ChevronDownIcon = () => (
     </svg>
 );
 
-// Logo from Homepage
-const LogoIcon = () => (
-    <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-[#7f13ec]">
-        <path clipRule="evenodd" d="M39.475 21.6262C40.358 21.4363 40.6863 21.5589 40.7581 21.5934C40.7876 21.655 40.8547 21.857 40.8082 22.3336C40.7408 23.0255 40.4502 24.0046 39.8572 25.2301C38.6799 27.6631 36.5085 30.6631 33.5858 33.5858C30.6631 36.5085 27.6632 38.6799 25.2301 39.8572C24.0046 40.4502 23.0255 40.7407 22.3336 40.8082C21.8571 40.8547 21.6551 40.7875 21.5934 40.7581C21.5589 40.6863 21.4363 40.358 21.6262 39.475C21.8562 38.4054 22.4689 36.9657 23.5038 35.2817C24.7575 33.2417 26.5497 30.9744 28.7621 28.762C30.9744 26.5497 33.2417 24.7574 35.2817 23.5037C36.9657 22.4689 38.4054 21.8562 39.475 21.6262ZM4.41189 29.2403L18.7597 43.5881C19.8813 44.7097 21.4027 44.9179 22.7217 44.7893C24.0585 44.659 25.5148 44.1631 26.9723 43.4579C29.9052 42.0387 33.2618 39.5667 36.4142 36.4142C39.5667 33.2618 42.0387 29.9052 43.4579 26.9723C44.1631 25.5148 44.659 24.0585 44.7893 22.7217C44.9179 21.4027 44.7097 19.8813 43.5881 18.7597L29.2403 4.41187C27.8527 3.02428 25.8765 3.02573 24.2861 3.36776C22.6081 3.72863 20.7334 4.58419 18.8396 5.74801C16.4978 7.18716 13.9881 9.18353 11.5858 11.5858C9.18354 13.988 7.18717 16.4978 5.74802 18.8396C4.58421 20.7334 3.72865 22.6081 3.36778 24.2861C3.02574 25.8765 3.02429 27.8527 4.41189 29.2403Z" fill="currentColor" fill-rule="evenodd"></path>
-    </svg>
-);
-
-
 interface HeaderProps {
   onGoHome: () => void;
   onThemeToggle: () => void;
@@ -94,20 +81,20 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
   }, []);
 
   return (
-     <header className="bg-[#121212]/80 backdrop-blur-md shadow-sm sticky top-0 z-40 transition-colors duration-300 px-4 sm:px-6 lg:px-8 border-b border-[#302839]">
+     <header className="bg-surface/80 dark:bg-[#121212]/80 backdrop-blur-md shadow-sm sticky top-0 z-40 transition-colors duration-300 px-4 sm:px-6 lg:px-8 border-b border-border-color dark:border-[#302839]">
         <nav className="flex justify-between items-center py-3">
             <div className="flex items-center gap-4">
                 {/* Hamburger for Mobile */}
                 <button 
                     onClick={onToggleNav} 
-                    className="md:hidden text-gray-400 hover:text-white focus:outline-none p-1 rounded-md hover:bg-[#302839]"
+                    className="md:hidden text-text-secondary dark:text-gray-400 hover:text-text-primary dark:hover:text-white focus:outline-none p-1 rounded-md hover:bg-gray-100 dark:hover:bg-[#302839]"
                 >
                     <span className="material-symbols-outlined text-2xl">menu</span>
                 </button>
 
                 <div className="flex items-center cursor-pointer group" onClick={onGoHome} title="Trang chủ">
-                    <LogoIcon />
-                    <span className="text-white text-xl font-bold tracking-tight ml-2 hidden sm:inline">Auflow</span>
+                    <Logo className="w-8 h-8 text-[#7f13ec]" />
+                    <span className="text-text-primary dark:text-white text-xl font-bold tracking-tight ml-2 hidden sm:inline">Auflow</span>
                 </div>
             </div>
             
@@ -117,7 +104,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                     <div className="flex items-center gap-3">
                          {/* Credits */}
                         <div 
-                            className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#2a1a35] text-[#DA70D6] rounded-full text-sm font-semibold border border-[#DA70D6]/30 cursor-pointer hover:bg-[#3a2a45] transition-colors" 
+                            className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-[#2a1a35] text-purple-700 dark:text-[#DA70D6] rounded-full text-sm font-semibold border border-purple-200 dark:border-[#DA70D6]/30 cursor-pointer hover:bg-purple-100 dark:hover:bg-[#3a2a45] transition-colors" 
                             onClick={() => setIsDropdownOpen(true)}
                             title="Số dư Credits"
                         >
@@ -129,7 +116,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
 
                 <button 
                     onClick={onThemeToggle} 
-                    className="p-2 rounded-full text-gray-400 hover:bg-[#302839] hover:text-white transition-all" 
+                    className="p-2 rounded-full text-text-secondary dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#302839] hover:text-text-primary dark:hover:text-white transition-all" 
                     aria-label="Toggle theme"
                 >
                     {theme === 'light' ? <MoonIcon /> : <SunIcon />}
@@ -141,32 +128,32 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                         className="flex items-center gap-2 focus:outline-none"
                     >
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#8A2BE2] to-[#DA70D6] flex items-center justify-center text-white shadow-md ring-2 ring-[#191919]">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#8A2BE2] to-[#DA70D6] flex items-center justify-center text-white shadow-md ring-2 ring-white dark:ring-[#191919]">
                             <span className="text-xs font-bold">{user?.email?.[0].toUpperCase()}</span>
                         </div>
                         <ChevronDownIcon />
                     </button>
 
                     {isDropdownOpen && (
-                        <div className="absolute right-0 mt-3 w-72 bg-[#191919] rounded-xl shadow-2xl border border-[#302839] py-1 z-50 animate-fade-in origin-top-right">
-                            <div className="px-5 py-4 border-b border-[#302839] bg-[#202020]">
+                        <div className="absolute right-0 mt-3 w-72 bg-surface dark:bg-[#191919] rounded-xl shadow-2xl border border-border-color dark:border-[#302839] py-1 z-50 animate-fade-in origin-top-right">
+                            <div className="px-5 py-4 border-b border-border-color dark:border-[#302839] bg-gray-50 dark:bg-[#202020]">
                                 {user ? (
                                     <div className="mb-3">
-                                        <p className="text-sm font-bold text-white truncate">
+                                        <p className="text-sm font-bold text-text-primary dark:text-white truncate">
                                             {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Người dùng'}
                                         </p>
-                                        <p className="text-xs text-gray-400 truncate">
+                                        <p className="text-xs text-text-secondary dark:text-gray-400 truncate">
                                             {user.email}
                                         </p>
                                     </div>
                                 ) : (
-                                    <p className="text-sm font-bold text-white mb-2">Tài khoản</p>
+                                    <p className="text-sm font-bold text-text-primary dark:text-white mb-2">Tài khoản</p>
                                 )}
                                 
                                 {/* Credit Display - Internal */}
                                 {userStatus && (
                                     <div className="space-y-2 mt-3">
-                                        <div className="flex items-center justify-between text-sm text-[#DA70D6] font-semibold bg-[#2a1a35] px-3 py-2 rounded-lg border border-[#DA70D6]/30">
+                                        <div className="flex items-center justify-between text-sm text-purple-700 dark:text-[#DA70D6] font-semibold bg-purple-50 dark:bg-[#2a1a35] px-3 py-2 rounded-lg border border-purple-200 dark:border-[#DA70D6]/30">
                                              <div className="flex items-center gap-2">
                                                  <CoinIcon />
                                                  <span>Credits</span>
@@ -177,8 +164,8 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                         {userStatus.subscriptionEnd ? (
                                             <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border ${
                                                 userStatus.isExpired 
-                                                ? 'bg-red-900/20 text-red-400 border-red-800/50' 
-                                                : 'bg-blue-900/20 text-blue-400 border-blue-800/50'
+                                                ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/50' 
+                                                : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/50'
                                             }`}>
                                                 <ClockIcon />
                                                 {userStatus.isExpired ? (
@@ -188,7 +175,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                                 )}
                                             </div>
                                         ) : (
-                                             <div className="text-xs text-gray-400 px-1">
+                                             <div className="text-xs text-text-secondary dark:text-gray-400 px-1">
                                                 Chưa đăng ký gói VIP
                                              </div>
                                         )}
@@ -200,7 +187,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                 {onOpenProfile && (
                                     <button 
                                         onClick={() => { onOpenProfile(); setIsDropdownOpen(false); }}
-                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-[#302839] hover:text-white flex items-center gap-3"
+                                        className="w-full text-left px-4 py-2.5 text-sm text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#302839] hover:text-text-primary dark:hover:text-white flex items-center gap-3"
                                     >
                                         <ProfileIcon /> Gói cước & Hồ sơ
                                     </button>
@@ -209,18 +196,18 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                 {onOpenGallery && (
                                     <button 
                                         onClick={() => { onOpenGallery(); setIsDropdownOpen(false); }}
-                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-[#302839] hover:text-white flex items-center gap-3"
+                                        className="w-full text-left px-4 py-2.5 text-sm text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#302839] hover:text-text-primary dark:hover:text-white flex items-center gap-3"
                                     >
                                         <GalleryIcon /> Thư viện của tôi
                                     </button>
                                 )}
                             </div>
                             
-                            <div className="border-t border-[#302839] my-1"></div>
+                            <div className="border-t border-border-color dark:border-[#302839] my-1"></div>
                             
                             <button 
                                 onClick={onSignOut}
-                                className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-[#302839] flex items-center gap-3 rounded-b-lg"
+                                className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-[#302839] flex items-center gap-3 rounded-b-lg"
                             >
                                 <LogoutIcon /> Đăng xuất
                             </button>

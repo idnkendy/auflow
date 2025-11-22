@@ -7,6 +7,7 @@ import * as historyService from '../services/historyService';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
 import ImageComparator from './ImageComparator';
+import OptionSelector from './common/OptionSelector';
 
 interface AITechnicalDrawingsProps {
     state: AITechnicalDrawingsState;
@@ -15,9 +16,22 @@ interface AITechnicalDrawingsProps {
     onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
+const drawingTypeOptions = [
+    { value: 'floor-plan', label: 'Mặt bằng (Floor Plan)' },
+    { value: 'elevation', label: 'Mặt đứng (Elevation)' },
+    { value: 'section', label: 'Mặt cắt (Section)' },
+];
+
+const detailLevelOptions = [
+    { value: 'basic', label: 'Cơ bản (Nét đơn)' },
+    { value: 'detailed', label: 'Chi tiết (Vật liệu)' },
+    { value: 'annotated', label: 'Có chú thích' },
+    { value: 'terrain', label: 'Kèm địa hình' },
+];
+
 const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { sourceImage, isLoading, error, resultImage, drawingType, detailLevel } = state;
-    const cost = 10;
+    const cost = 5;
 
     const handleFileSelect = (fileData: FileData | null) => {
         onStateChange({
@@ -40,13 +54,13 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
         onStateChange({ isLoading: true, error: null, resultImage: null });
 
         // Prompt construction
-        const drawingTypeMap = {
+        const drawingTypeMap: Record<string, string> = {
             'floor-plan': 'a professional 2D floor plan',
             'elevation': 'a professional 2D front elevation drawing',
             'section': 'a professional 2D cross-section drawing'
         };
 
-        const detailLevelMap = {
+        const detailLevelMap: Record<string, string> = {
             'basic': 'Use simple, clean lines to show the main architectural layout, walls, doors, and windows.',
             'detailed': 'Include more details such as furniture layout, fixtures, structural elements, and material indications (hatching for concrete, wood grain patterns, etc.).',
             'annotated': 'Include all details from the "detailed" level, and add text annotations for room names (e.g., "Living Room", "Bedroom 1") and overall dimensions.',
@@ -82,74 +96,44 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
         if (!resultImage) return;
         const link = document.createElement('a');
         link.href = resultImage;
-        link.download = `technical-drawing-${drawingType}.png`;
+        link.download = `technical-drawing.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    const renderOptionSelector = (
-        label: string,
-        options: { value: string, label: string }[],
-        currentValue: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onChange: (value: any) => void
-    ) => (
-        <div>
-            <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">{label}</label>
-            <div className="flex flex-wrap items-center gap-2 bg-main-bg dark:bg-gray-700/50 p-1 rounded-lg">
-                {options.map(option => (
-                    <button
-                        key={option.value}
-                        onClick={() => onChange(option.value)}
-                        disabled={isLoading}
-                        className={`flex-grow py-2 px-3 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-700/50 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed ${
-                            currentValue === option.value
-                                ? 'bg-accent text-white shadow'
-                                : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                        }`}
-                    >
-                        {option.label}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-
     return (
         <div className="flex flex-col gap-8">
-            <h2 className="text-2xl font-bold text-text-primary dark:text-white mb-4">Bản vẽ kỹ thuật AI</h2>
-            <p className="text-text-secondary dark:text-gray-300 -mt-8 mb-6">Tải lên một ảnh Render 3D, AI sẽ tự động phân tích và chuyển đổi thành bản vẽ kỹ thuật 2D tương ứng.</p>
+            <h2 className="text-2xl font-bold text-text-primary dark:text-white mb-4">AI Tạo Bản Vẽ Kỹ Thuật</h2>
+            <p className="text-text-secondary dark:text-gray-300 -mt-8 mb-6">Chuyển đổi ảnh phối cảnh 3D (Render) thành bản vẽ kỹ thuật 2D (mặt bằng, mặt đứng, mặt cắt) chuyên nghiệp.</p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* --- INPUTS --- */}
                 <div className="space-y-6 bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
                     <div>
                         <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Tải Lên Ảnh Render 3D</label>
-                        <ImageUpload onFileSelect={handleFileSelect} id="technical-drawing-source" previewUrl={sourceImage?.objectURL} />
+                        <ImageUpload onFileSelect={handleFileSelect} id="tech-drawing-source" previewUrl={sourceImage?.objectURL} />
                     </div>
-                    {renderOptionSelector(
-                        "2. Chọn loại bản vẽ",
-                        [
-                            { value: 'floor-plan', label: 'Mặt bằng 2D' },
-                            { value: 'elevation', label: 'Mặt đứng' },
-                            { value: 'section', label: 'Mặt cắt' },
-                        ],
-                        drawingType,
-                        (value) => onStateChange({ drawingType: value })
-                    )}
-                    {renderOptionSelector(
-                        "3. Chọn mức độ chi tiết",
-                        [
-                            { value: 'basic', label: 'Cơ bản' },
-                            { value: 'detailed', label: 'Chi tiết' },
-                            { value: 'annotated', label: 'Chú thích' },
-                            { value: 'terrain', label: 'Địa hình' },
-                        ],
-                        detailLevel,
-                        (value) => onStateChange({ detailLevel: value })
-                    )}
                     
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <OptionSelector 
+                            id="drawing-type"
+                            label="2. Loại bản vẽ"
+                            options={drawingTypeOptions}
+                            value={drawingType}
+                            onChange={(val) => onStateChange({ drawingType: val as any })}
+                            disabled={isLoading}
+                        />
+                        <OptionSelector 
+                            id="detail-level"
+                            label="3. Mức độ chi tiết"
+                            options={detailLevelOptions}
+                            value={detailLevel}
+                            onChange={(val) => onStateChange({ detailLevel: val as any })}
+                            disabled={isLoading}
+                        />
+                    </div>
+
                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-3 border border-gray-200 dark:border-gray-700">
                         <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
@@ -171,7 +155,7 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
                         disabled={isLoading || !sourceImage || userCredits < cost}
                         className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                     >
-                        {isLoading ? <><Spinner /> Đang tạo bản vẽ...</> : 'Tạo Bản Vẽ'}
+                        {isLoading ? <><Spinner /> Đang xử lý...</> : 'Tạo Bản Vẽ'}
                     </button>
                     {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
                 </div>
@@ -182,7 +166,7 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
                         <h3 className="text-xl font-semibold text-text-primary dark:text-white">So sánh Render & Bản vẽ</h3>
                         {resultImage && (
                             <button onClick={handleDownload} className="text-center bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 transition-colors rounded-lg text-sm">
-                                Tải xuống Bản vẽ
+                                Tải xuống
                             </button>
                         )}
                     </div>
@@ -195,7 +179,7 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
                             />
                         )}
                         {!isLoading && !resultImage && (
-                             <p className="text-text-secondary dark:text-gray-400 text-center p-4">{sourceImage ? 'Bản vẽ kỹ thuật sẽ được hiển thị ở đây.' : 'Tải lên một ảnh render để bắt đầu.'}</p>
+                             <p className="text-text-secondary dark:text-gray-400 text-center p-4">{sourceImage ? 'Kết quả sẽ được hiển thị ở đây.' : 'Tải lên một ảnh render để bắt đầu.'}</p>
                         )}
                     </div>
                 </div>

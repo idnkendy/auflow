@@ -47,7 +47,7 @@ const interiorSuggestions = [
 ];
 
 const FilmIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
     </svg>
 );
@@ -89,8 +89,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
         }
     };
 
-    // Fixed cost: 50 credits
-    const cost = 50; 
+    // Fixed cost: 5 credits
+    const cost = 5; 
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -229,7 +229,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
                                 onClick={() => onStateChange({ mode: 'exterior' })}
                                 disabled={isLoading}
                                 className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${
-                                    mode === 'exterior' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                    mode === 'exterior' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                 }`}
                             >
                                 Ngoại thất
@@ -238,7 +238,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
                                 onClick={() => onStateChange({ mode: 'interior' })}
                                 disabled={isLoading}
                                 className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${
-                                    mode === 'interior' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                    mode === 'interior' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                 }`}
                             >
                                 Nội thất
@@ -286,7 +286,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
                     <button
                         onClick={handleGenerate}
                         disabled={isLoading || userCredits < cost}
-                        className="w-full flex justify-center items-center gap-3 bg-accent hover:bg-accent-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                        className="w-full flex justify-center items-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                     >
                        {isLoading ? <><Spinner /> Đang xử lý...</> : 'Tạo Video'}
                     </button>

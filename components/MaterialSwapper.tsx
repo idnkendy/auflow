@@ -46,7 +46,8 @@ const MaterialSwapper: React.FC<MaterialSwapperProps> = ({ state, onStateChange,
         }
     };
 
-    const cost = numberOfImages * 10;
+    // Update Cost: 5 credits per image
+    const cost = numberOfImages * 5;
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -142,7 +143,7 @@ const MaterialSwapper: React.FC<MaterialSwapperProps> = ({ state, onStateChange,
                         <button
                             onClick={handleAutoPrompt}
                             disabled={!sceneImage || isLoading || isGeneratingPrompt}
-                            className="mt-2 w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
+                            className="mt-2 w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
                         >
                             {isGeneratingPrompt ? <Spinner /> : <SparklesIcon />}
                             <span>{isGeneratingPrompt ? 'Đang tạo...' : 'Tạo tự động Prompt'}</span>
@@ -168,7 +169,7 @@ const MaterialSwapper: React.FC<MaterialSwapperProps> = ({ state, onStateChange,
                     <button
                         onClick={handleGenerate}
                         disabled={isLoading || !sceneImage || !materialImage || userCredits < cost}
-                        className="w-full flex justify-center items-center gap-3 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                        className="w-full flex justify-center items-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                     >
                         {isLoading ? <><Spinner /> Đang xử lý...</> : 'Thực Hiện Thay Thế'}
                     </button>

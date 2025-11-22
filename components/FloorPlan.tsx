@@ -51,7 +51,8 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
         }
     };
 
-    const cost = numberOfImages * 10;
+    // Update Cost: 5 credits per image
+    const cost = numberOfImages * 5;
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -169,7 +170,7 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                                         onClick={() => onStateChange({ planType: 'interior' })}
                                         disabled={isLoading}
                                         className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${
-                                            planType === 'interior' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                            planType === 'interior' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                         }`}
                                     >
                                         Nội thất
@@ -178,7 +179,7 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                                         onClick={() => onStateChange({ planType: 'exterior' })}
                                         disabled={isLoading}
                                         className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${
-                                            planType === 'exterior' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                            planType === 'exterior' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                         }`}
                                     >
                                         Kiến trúc
@@ -192,7 +193,7 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                                         onClick={() => onStateChange({ renderMode: 'top-down' })}
                                         disabled={isLoading}
                                         className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${
-                                            renderMode === 'top-down' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                            renderMode === 'top-down' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                         }`}
                                     >
                                         {planType === 'interior' ? 'Mặt Bằng 3D' : 'Phối cảnh Tổng thể'}
@@ -201,7 +202,7 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                                         onClick={() => onStateChange({ renderMode: 'perspective' })}
                                         disabled={isLoading}
                                         className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${
-                                            renderMode === 'perspective' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                            renderMode === 'perspective' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                         }`}
                                     >
                                         {planType === 'interior' ? 'Góc nhìn Nội thất 3D' : 'Góc nhìn Kiến trúc 3D'}
@@ -225,7 +226,7 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                                     <button
                                         onClick={handleAutoPrompt}
                                         disabled={!sourceImage || isLoading || isGeneratingPrompt}
-                                        className="mt-2 w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
+                                        className="mt-2 w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
                                     >
                                         {isGeneratingPrompt ? <Spinner /> : <SparklesIcon />}
                                         <span>{isGeneratingPrompt ? 'Đang tạo...' : 'Tạo tự động Prompt'}</span>
@@ -251,7 +252,7 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                                         <button
                                             onClick={handleAutoPrompt}
                                             disabled={!sourceImage || isLoading || isGeneratingPrompt}
-                                            className="mt-2 w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
+                                            className="mt-2 w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
                                         >
                                             {isGeneratingPrompt ? <Spinner /> : <SparklesIcon />}
                                             <span>{isGeneratingPrompt ? 'Đang tạo...' : 'Tạo tự động Prompt'}</span>
@@ -287,7 +288,7 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                             <button
                                 onClick={handleGenerate}
                                 disabled={isLoading || !sourceImage || userCredits < cost}
-                                className="w-full flex justify-center items-center gap-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                                className="w-full flex justify-center items-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                             >
                                 {isLoading ? <><Spinner /> Đang Render 3D...</> : 'Bắt đầu Render'}
                             </button>

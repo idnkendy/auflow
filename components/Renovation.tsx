@@ -59,7 +59,8 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
         }
     };
 
-    const cost = numberOfImages * 10;
+    // Update Cost: 5 credits per image
+    const cost = numberOfImages * 5;
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -179,7 +180,7 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => setIsMaskingModalOpen(true)}
-                                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
                                             >
                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>
                                                 {maskImage ? 'Sửa vùng chọn' : 'Vẽ vùng chọn'}
@@ -217,7 +218,7 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
                                 <button
                                     onClick={handleAutoPrompt}
                                     disabled={!sourceImage || isLoading || isGeneratingPrompt}
-                                    className="mt-2 w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
+                                    className="mt-2 w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
                                 >
                                     {isGeneratingPrompt ? <Spinner /> : <SparklesIcon />}
                                     <span>{isGeneratingPrompt ? 'Đang tạo...' : 'Tạo tự động Prompt'}</span>
@@ -269,7 +270,7 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
                             <button
                                 onClick={handleGenerate}
                                 disabled={isLoading || !sourceImage || userCredits < cost}
-                                className="w-full flex justify-center items-center gap-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                                className="w-full flex justify-center items-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                             >
                                 {isLoading ? <><Spinner /> Đang lên phương án...</> : 'Bắt đầu Cải Tạo'}
                             </button>

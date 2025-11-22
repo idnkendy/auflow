@@ -17,7 +17,7 @@ interface SketchConverterProps {
 
 const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { sourceImage, isLoading, error, resultImage, sketchStyle, detailLevel } = state;
-    const cost = 10;
+    const cost = 5;
 
     const handleFileSelect = (fileData: FileData | null) => {
         onStateChange({

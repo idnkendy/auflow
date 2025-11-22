@@ -23,8 +23,8 @@ const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits = 0
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const upscalePrompt = "Upscale this image to a high resolution. Enhance the details, textures, and lighting to make it look photorealistic and professional. Do not change the composition or the core design.";
     
-    // Dynamic cost calculation
-    const cost = numberOfImages * 10;
+    // Dynamic cost calculation: 5 credits per image
+    const cost = numberOfImages * 5;
 
     const handleUpscale = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -111,7 +111,7 @@ const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits = 0
                         <button
                             onClick={handleUpscale}
                             disabled={isLoading || !sourceImage || userCredits < cost}
-                            className="w-full flex justify-center items-center gap-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                            className="w-full flex justify-center items-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                         >
                             {isLoading ? <><Spinner /> Đang nâng cấp...</> : 'Bắt Đầu Nâng Cấp'}
                         </button>

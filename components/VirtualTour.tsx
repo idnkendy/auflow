@@ -28,7 +28,7 @@ interface VirtualTourProps {
 
 const VirtualTour: React.FC<VirtualTourProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { sourceImage, currentTourImage, isLoading, error, tourStepSize, tourHistory } = state;
-    const costPerStep = 10;
+    const costPerStep = 5;
 
     const handleTourFileSelect = (fileData: FileData | null) => {
         onStateChange({

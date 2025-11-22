@@ -84,7 +84,7 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
     } = state;
 
     // Determine cost based on operation type
-    const cost = (floorPlanImage || ['huyen-khong', 'than-sat', 'loan-dau'].includes(analysisType)) ? 20 : 5;
+    const cost = 5;
 
     const handleGetLocation = () => {
         if (navigator.geolocation) {

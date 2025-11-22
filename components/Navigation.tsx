@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tool } from '../types';
 
@@ -28,7 +27,7 @@ const LandscapeIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25m0 0a4.5 4.5 0 00-4.5 4.5h9a4.5 4.5 0 00-4.5-4.5zm0-8.25a4.5 4.5 0 014.5 4.5h-9a4.5 4.5 0 014.5-4.5zM12 3v.75m0-3.75a4.5 4.5 0 00-4.5 4.5h9a4.5 4.5 0 00-4.5-4.5z" /></svg>
 );
 const ViewGridIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
 );
 const FilmIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>
@@ -123,7 +122,7 @@ const Navigation: React.FC<NavigationProps> = ({ activeTool, setActiveTool, isMo
             className={`group flex items-center w-full gap-3 px-4 py-3 rounded-full lg:rounded-lg text-left transition-all duration-200 text-sm font-medium mb-1 ${
               activeTool === item.tool
                 ? 'bg-[#7f13ec] text-white shadow-lg shadow-[#7f13ec]/25'
-                : 'text-gray-400 hover:bg-[#302839] hover:text-white'
+                : 'text-text-secondary dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#302839] hover:text-text-primary dark:hover:text-white'
             }`}
           >
             <span className={`${activeTool === item.tool ? 'text-white' : 'text-gray-400 group-hover:text-[#7f13ec]'} transition-colors`}>
@@ -144,22 +143,22 @@ const Navigation: React.FC<NavigationProps> = ({ activeTool, setActiveTool, isMo
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-[#121212]/95 backdrop-blur-xl border-r border-[#302839]
+        fixed inset-y-0 left-0 z-50 w-72 bg-surface/95 dark:bg-[#121212]/95 backdrop-blur-xl border-r border-border-color dark:border-[#302839]
         transform transition-transform duration-300 ease-in-out
-        md:translate-x-0 md:static md:w-64 md:bg-[#121212]/80 md:border md:rounded-2xl md:m-6 md:h-[calc(100vh-96px)]
+        md:translate-x-0 md:static md:w-64 md:bg-surface/80 dark:md:bg-[#121212]/80 md:border md:rounded-2xl md:m-6 md:h-[calc(100vh-96px)]
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="h-full flex flex-col p-4 overflow-y-auto scrollbar-hide">
             <div className="flex justify-between items-center md:hidden mb-4 px-2">
-                <h2 className="text-lg font-bold text-white">Menu</h2>
-                <button onClick={onCloseMobile} className="text-gray-400 hover:text-white">
+                <h2 className="text-lg font-bold text-text-primary dark:text-white">Menu</h2>
+                <button onClick={onCloseMobile} className="text-text-secondary dark:text-gray-400 hover:text-text-primary dark:hover:text-white">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
 
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-4 pb-3 hidden md:block">Công cụ chính</h2>
+            <h2 className="text-xs font-bold text-text-secondary dark:text-gray-500 uppercase tracking-wider px-4 pb-3 hidden md:block">Công cụ chính</h2>
             
             <nav className="flex-1 space-y-1">
                 {mainNavItems.map(item => renderItem(item))}
@@ -171,8 +170,8 @@ const Navigation: React.FC<NavigationProps> = ({ activeTool, setActiveTool, isMo
                         onClick={() => setIsGroupOpen(!isGroupOpen)}
                         className={`flex items-center justify-between w-full gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 text-sm font-medium mb-1 ${
                         isGroupActive
-                            ? 'bg-[#191919] text-white'
-                            : 'text-gray-400 hover:bg-[#302839] hover:text-white'
+                            ? 'bg-gray-100 dark:bg-[#191919] text-text-primary dark:text-white'
+                            : 'text-text-secondary dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#302839] hover:text-text-primary dark:hover:text-white'
                         }`}
                     >
                         <div className="flex items-center gap-3">
@@ -194,7 +193,7 @@ const Navigation: React.FC<NavigationProps> = ({ activeTool, setActiveTool, isMo
                 </div>
             </nav>
             
-            <div className="w-full mt-auto pt-4 border-t border-[#302839]">
+            <div className="w-full mt-auto pt-4 border-t border-border-color dark:border-[#302839]">
                 {renderItem(historyItem)}
             </div>
         </div>

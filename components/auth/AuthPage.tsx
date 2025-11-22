@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient';
 import Spinner from '../Spinner';
+import { Logo } from '../common/Logo';
 
 interface AuthPageProps {
   onGoHome: () => void;
@@ -67,10 +68,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
         </button>
         <div className="w-full max-w-md">
             <div className="flex justify-center items-center mb-6">
-                 <svg className="w-10 h-10 mr-2 text-accent" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M10 90L50 10L90 90" stroke="currentColor" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M30 90L50 50L70 90" stroke="currentColor" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                 <Logo className="w-10 h-10 mr-2" />
                 <span className="text-text-primary dark:text-white text-2xl font-bold">Auflow</span>
             </div>
             <div className="bg-surface dark:bg-dark-bg p-8 rounded-xl shadow-lg border border-border-color dark:border-gray-700">

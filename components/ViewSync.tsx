@@ -81,7 +81,8 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
         setIsDirectionModalOpen(false);
     };
 
-    const cost = numberOfImages * 10;
+    // Update Cost: 5 credits per image
+    const cost = numberOfImages * 5;
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -163,7 +164,7 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
                             <div className="mt-4">
                                 <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">Hoặc chỉ định hướng nhìn trực quan:</p>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setIsDirectionModalOpen(true)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                                    <button onClick={() => setIsDirectionModalOpen(true)} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                         {directionImage ? 'Sửa hướng' : 'Vẽ Hướng Cần Tạo'}
                                     </button>
@@ -176,8 +177,8 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
                     <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
                         <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">2. Chọn chế độ</label>
                         <div className="flex items-center gap-2 bg-main-bg dark:bg-gray-800 p-1 rounded-lg">
-                            <button onClick={() => onStateChange({ sceneType: 'exterior' })} disabled={isLoading} className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${sceneType === 'exterior' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>Ngoại thất</button>
-                            <button onClick={() => onStateChange({ sceneType: 'interior' })} disabled={isLoading} className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${sceneType === 'interior' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>Nội thất</button>
+                            <button onClick={() => onStateChange({ sceneType: 'exterior' })} disabled={isLoading} className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${sceneType === 'exterior' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>Ngoại thất</button>
+                            <button onClick={() => onStateChange({ sceneType: 'interior' })} disabled={isLoading} className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${sceneType === 'interior' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>Nội thất</button>
                         </div>
                     </div>
                     {sceneType === 'exterior' ? (
@@ -215,7 +216,7 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
                             )}
                         </div>
                     </div>
-                    <button onClick={handleGenerate} disabled={isLoading || !sourceImage || userCredits < cost} className="w-full flex justify-center items-center gap-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
+                    <button onClick={handleGenerate} disabled={isLoading || !sourceImage || userCredits < cost} className="w-full flex justify-center items-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">
                         {isLoading ? <><Spinner /> Đang xử lý...</> : 'Tạo Góc Nhìn'}
                     </button>
                     {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}

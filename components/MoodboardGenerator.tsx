@@ -53,7 +53,8 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
         }
     };
 
-    const cost = numberOfImages * 10;
+    // Update Cost: 5 credits per image
+    const cost = numberOfImages * 5;
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -138,7 +139,7 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
                             onClick={() => onStateChange({ mode: 'moodboardToScene', resultImages: [], sourceImage: null, prompt: 'Một phòng khách hiện đại và rộng rãi.' })}
                             disabled={isLoading}
                             className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${
-                                mode === 'moodboardToScene' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                mode === 'moodboardToScene' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                             }`}
                         >
                             Từ Moodboard ra Không gian
@@ -147,7 +148,7 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
                             onClick={() => onStateChange({ mode: 'sceneToMoodboard', resultImages: [], sourceImage: null, prompt: '' })}
                             disabled={isLoading}
                             className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-800 focus:ring-accent disabled:opacity-50 ${
-                                mode === 'sceneToMoodboard' ? 'bg-accent text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                mode === 'sceneToMoodboard' ? 'bg-purple-600 text-white shadow' : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                             }`}
                         >
                             Từ Không gian ra Moodboard
@@ -181,7 +182,7 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
                                 <button
                                     onClick={handleAutoPrompt}
                                     disabled={!sourceImage || isLoading || isGeneratingPrompt}
-                                    className="mt-2 w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
+                                    className="mt-2 w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
                                 >
                                     {isGeneratingPrompt ? <Spinner /> : <SparklesIcon />}
                                     <span>
@@ -217,34 +218,29 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
                     <button
                         onClick={handleGenerate}
                         disabled={isLoading || !sourceImage || userCredits < cost}
-                        className="w-full flex justify-center items-center gap-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                        className="w-full flex justify-center items-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
                     >
                        {isLoading ? <><Spinner /> Đang Sáng tạo...</> : (mode === 'moodboardToScene' ? 'Tạo Không Gian' : 'Tạo Moodboard')}
                     </button>
                     {error && <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm">{error}</div>}
                 </div>
-            </div>
 
-            {/* --- RESULTS --- */}
-             <div>
-                <h3 className="text-xl font-semibold text-text-primary dark:text-white mb-4">
-                    {mode === 'moodboardToScene' ? 'Kết Quả Thiết Kế' : 'Moodboard Đã Tạo'}
-                </h3>
-                <div className="w-full min-h-[400px] bg-main-bg dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-border-color dark:border-gray-700 flex items-center justify-center overflow-hidden p-2">
-                    {isLoading && <Spinner />}
-                    
-                    {!isLoading && resultImages.length > 0 && (
-                        <ResultGrid images={resultImages} toolName="moodboard-result" />
-                    )}
+                {/* --- RESULTS --- */}
+                <div>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold text-text-primary dark:text-white">Kết Quả</h3>
+                    </div>
+                    <div className="w-full aspect-video bg-main-bg dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-border-color dark:border-gray-700 flex items-center justify-center overflow-hidden">
+                        {isLoading && <Spinner />}
+                        
+                        {!isLoading && resultImages.length > 0 && (
+                            <ResultGrid images={resultImages} toolName="moodboard" />
+                        )}
 
-                    {!isLoading && resultImages.length === 0 && (
-                        <div className="text-center text-text-secondary dark:text-gray-400 p-4">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <p className="mt-2">{sourceImage ? 'Kết quả sẽ được hiển thị ở đây.' : 'Tải lên ảnh và mô tả để bắt đầu.'}</p>
-                        </div>
-                    )}
+                        {!isLoading && resultImages.length === 0 && (
+                             <p className="text-text-secondary dark:text-gray-400 text-center p-4">{sourceImage ? 'Kết quả sẽ được hiển thị ở đây.' : 'Tải lên ảnh để bắt đầu.'}</p>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

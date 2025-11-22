@@ -88,7 +88,6 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
     
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-    const [retryCount, setRetryCount] = useState(0);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
     const updatePrompt = useCallback((type: 'style' | 'context' | 'lighting' | 'weather' | 'buildingType', newValue: string, oldValue: string) => {
@@ -180,7 +179,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         }
     };
 
-    const cost = numberOfImages * 10;
+    // Update Cost: 5 credits per image
+    const cost = numberOfImages * 5;
 
     const performGeneration = async (
         prompt: string, 
@@ -247,7 +247,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
 
             // 3. Smart Retry Logic
             let attempts = 0;
-            const maxAttempts = 60; // Try for 5 minutes (approx 5s per loop + wait)
+            const maxAttempts = 60; // Try for 5 minutes
             let imageUrls: string[] = [];
             let success = false;
 
@@ -255,11 +255,10 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                 try {
                      if (jobId) await jobService.updateJobStatus(jobId, 'processing');
                      
-                     // Pass jobId to performGeneration to track API Key
                      imageUrls = await performGeneration(customPrompt, sourceImage, referenceImage, numberOfImages, aspectRatio, jobId || undefined);
                      
                      success = true;
-                     break; // Success!
+                     break;
 
                 } catch (apiError: any) {
                     if (apiError.message === 'SYSTEM_BUSY') {
@@ -267,13 +266,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                         console.warn(`System busy, retrying... (${attempts}/${maxAttempts})`);
                         setStatusMessage(`Hệ thống đang bận (${attempts}), vui lòng đợi trong giây lát...`);
                         
-                        // Keep job as 'pending' in DB logic (conceptually), but here we just wait
-                        // Actually, set it back to 'pending' so if user closes tab, the cron job picks it up later as stale
                         if (jobId) await jobService.updateJobStatus(jobId, 'pending');
 
-                        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s
+                        await new Promise(resolve => setTimeout(resolve, 5000)); 
                     } else {
-                        throw apiError; // Fatal error (e.g., bad request), stop immediately
+                        throw apiError; 
                     }
                 }
             }
@@ -306,7 +303,6 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
             const errorMessage = err.message || 'Đã xảy ra lỗi không mong muốn.';
             onStateChange({ error: errorMessage });
             
-            // 5. Update Job Failed & Refund
             if (jobId) {
                 await jobService.updateJobStatus(jobId, 'failed', undefined, errorMessage);
             }
@@ -392,20 +388,32 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                 <p className="text-sm md:text-base text-text-secondary dark:text-gray-400">Biến phác thảo thành hiện thực hoặc tạo ý tưởng mới từ mô tả văn bản.</p>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
-                
-                {/* --- LEFT COLUMN: CONFIGURATION --- */}
-                <div className="lg:col-span-5 space-y-4 md:space-y-6">
-                    {/* Prompt Input - Top Priority */}
-                    <div className="bg-white dark:bg-gray-800 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <label htmlFor="custom-prompt-architectural" className="block text-sm font-bold text-text-primary dark:text-white mb-2">
-                            Mô tả ý tưởng (Prompt)
-                        </label>
+            {/* --- INPUTS CONTAINER --- */}
+            <div className="space-y-6 bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    
+                    {/* Left Column: Image Uploads */}
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Tải Lên Ảnh Phác Thảo (Sketch)</label>
+                            <ImageUpload onFileSelect={handleFileSelect} previewUrl={sourceImage?.objectURL}/>
+                        </div>
+                         <div>
+                            <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Ảnh Tham Chiếu (Tùy chọn)</label>
+                            <ImageUpload onFileSelect={handleReferenceFileSelect} previewUrl={referenceImage?.objectURL}/>
+                        </div>
+                    </div>
+
+                    {/* Right Column: Prompts & Options */}
+                    <div className="space-y-4 flex flex-col">
                         <div className="relative">
+                            <label htmlFor="custom-prompt-architectural" className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">
+                                2. Mô tả ý tưởng (Prompt)
+                            </label>
                             <textarea
                                 id="custom-prompt-architectural"
                                 rows={4}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:border-accent focus:outline-none transition-all resize-none text-sm md:text-base"
+                                className="w-full bg-surface dark:bg-gray-700/50 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-200 focus:ring-2 focus:ring-accent focus:border-accent focus:outline-none transition-all resize-none text-sm md:text-base pb-10"
                                 placeholder="VD: Một ngôi nhà phố hiện đại, mặt tiền 5m, nhiều cây xanh, cửa kính lớn, ánh sáng tự nhiên..."
                                 value={customPrompt}
                                 onChange={(e) => onStateChange({ customPrompt: e.target.value })}
@@ -414,142 +422,134 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                             <button
                                 onClick={handleAutoPrompt}
                                 disabled={!sourceImage || isLoading || isUpscaling || isGeneratingPrompt}
-                                className="absolute bottom-2 right-2 p-2 text-xs bg-accent/10 hover:bg-accent/20 text-accent-600 dark:text-accent-400 rounded-md transition-colors flex items-center gap-1"
+                                className="absolute bottom-2 right-2 p-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors flex items-center gap-1 disabled:bg-gray-500 disabled:cursor-not-allowed"
                                 title="Tạo prompt từ ảnh"
                             >
                                 {isGeneratingPrompt ? <Spinner /> : <SparklesIcon />}
                                 <span className="hidden sm:inline">Auto Prompt</span>
                             </button>
                         </div>
-                    </div>
 
-                    {/* Image Inputs */}
-                    <div className="bg-white dark:bg-gray-800 p-4 md:p-5 rounded-xl shadow-sm border border-border-color dark:border-gray-700 space-y-5">
-                        <div>
-                            <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Ảnh Phác Thảo (Sketch)</label>
-                            <ImageUpload onFileSelect={handleFileSelect} previewUrl={sourceImage?.objectURL}/>
+                        {/* Options Grid */}
+                        <div className="pt-2">
+                            <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Tinh chỉnh chi tiết</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <OptionSelector id="building-type-selector" label="Loại công trình" options={buildingTypeOptions} value={buildingType} onChange={handleBuildingTypeChange} disabled={isLoading} />
+                                <OptionSelector id="style-selector" label="Phong cách" options={styleOptions} value={style} onChange={handleStyleChange} disabled={isLoading} />
+                                <OptionSelector id="context-selector" label="Bối cảnh" options={contextOptions} value={context} onChange={handleContextChange} disabled={isLoading} />
+                                <OptionSelector id="lighting-selector" label="Ánh sáng" options={lightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} />
+                                <OptionSelector id="weather-selector" label="Thời tiết" options={weatherOptions} value={weather} onChange={handleWeatherChange} disabled={isLoading} />
+                            </div>
                         </div>
-                         <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
-                            <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2 mt-3">Ảnh Tham Chiếu (Style Reference)</label>
-                            <ImageUpload onFileSelect={handleReferenceFileSelect} previewUrl={referenceImage?.objectURL}/>
-                        </div>
-                    </div>
-
-                    {/* Advanced Options (Accordion Style) */}
-                    <div className="bg-white dark:bg-gray-800 p-4 md:p-5 rounded-xl shadow-sm border border-border-color dark:border-gray-700">
-                        <h3 className="text-sm font-bold text-text-primary dark:text-white mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">Tinh chỉnh chi tiết</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <OptionSelector id="building-type-selector" label="Loại công trình" options={buildingTypeOptions} value={buildingType} onChange={handleBuildingTypeChange} disabled={isLoading} />
-                            <OptionSelector id="style-selector" label="Phong cách" options={styleOptions} value={style} onChange={handleStyleChange} disabled={isLoading} />
-                            <OptionSelector id="context-selector" label="Bối cảnh" options={contextOptions} value={context} onChange={handleContextChange} disabled={isLoading} />
-                            <OptionSelector id="lighting-selector" label="Ánh sáng" options={lightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} />
-                            <OptionSelector id="weather-selector" label="Thời tiết" options={weatherOptions} value={weather} onChange={handleWeatherChange} disabled={isLoading} />
-                        </div>
-                    </div>
-                    
-                    {/* Output Settings */}
-                    <div className="bg-white dark:bg-gray-800 p-4 md:p-5 rounded-xl shadow-sm border border-border-color dark:border-gray-700">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        
+                        {/* Output Settings */}
+                        <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({numberOfImages: val})} disabled={isLoading || isUpscaling} />
                             <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({aspectRatio: val})} disabled={isLoading || isUpscaling} />
                         </div>
                     </div>
-
-                    {/* Generate Button Block */}
-                    <div className="sticky bottom-4 z-20">
-                        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md p-4 rounded-xl shadow-lg border border-accent/20 dark:border-accent/20">
-                            <div className="flex justify-between items-center mb-3 text-sm">
-                                <span className="text-gray-500 dark:text-gray-400">Chi phí ước tính:</span>
-                                <div className={`font-bold ${userCredits < cost ? 'text-red-500' : 'text-accent-600 dark:text-accent-400'}`}>
-                                    {cost} Credits <span className="font-normal text-gray-400 text-xs">/ {userCredits} khả dụng</span>
-                                </div>
-                            </div>
-                            <button
-                                onClick={handleGenerate}
-                                disabled={isLoading || !customPrompt.trim() || isUpscaling || userCredits < cost}
-                                className="w-full py-3.5 px-6 rounded-lg bg-gradient-to-r from-accent-600 to-teal-500 hover:from-accent-500 hover:to-teal-400 text-white font-bold text-lg shadow-lg shadow-accent-500/30 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center gap-2"
-                            >
-                                {isLoading ? <><Spinner /> {statusMessage || 'Đang xử lý...'}</> : 'Bắt đầu Render'}
-                            </button>
-                             {error && <p className="mt-3 text-xs text-red-500 text-center bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800">{error}</p>}
-                        </div>
-                    </div>
                 </div>
 
-                {/* --- RIGHT COLUMN: PREVIEW & RESULTS --- */}
-                <div className="lg:col-span-7 space-y-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <h3 className="text-lg font-bold text-text-primary dark:text-white flex items-center gap-2">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-accent" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
-                             Kết quả
-                        </h3>
-                        
-                        {/* Action Buttons for Result */}
-                        {resultImages.length === 1 && (
-                            <div className="flex flex-wrap items-center gap-2">
-                                {!upscaledImage && (
-                                    <button
-                                        onClick={handleUpscale}
-                                        disabled={isUpscaling || isLoading}
-                                        className="flex items-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-yellow-500/20"
-                                    >
-                                        {isUpscaling ? <Spinner/> : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                        )}
-                                        <span>Upscale</span>
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => handleSendImageToSync(upscaledImage || resultImages[0])}
-                                    className="text-accent-600 dark:text-accent-400 bg-accent-50 dark:bg-accent-900/20 hover:bg-accent-100 dark:hover:bg-accent-900/40 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-accent-200 dark:border-accent-800"
-                                >
-                                    Đồng bộ View
-                                </button>
-                                <button
-                                    onClick={() => setPreviewImage(upscaledImage || resultImages[0])}
-                                    className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 p-1.5 rounded-lg transition-colors"
-                                    title="Phóng to"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
-                                </button>
-                                 <button onClick={handleDownload} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium shadow-sm transition-colors">
-                                    Tải xuống
-                                </button>
-                            </div>
-                        )}
+                {/* Bottom Action Bar */}
+                <div className="mt-4">
+                    <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-3 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-7.536 5.879a1 1 0 001.415 0 3 3 0 014.242 0 1 1 0 001.415-1.415 5 5 0 00-7.072 0 1 1 0 000 1.415z" clipRule="evenodd" />
+                            </svg>
+                            <span>Chi phí: <span className="font-bold text-text-primary dark:text-white">{cost} Credits</span></span>
+                        </div>
+                        <div className="text-xs">
+                            {userCredits < cost ? (
+                                <span className="text-red-500 font-semibold">Không đủ (Có: {userCredits})</span>
+                            ) : (
+                                <span className="text-green-600 dark:text-green-400">Khả dụng: {userCredits}</span>
+                            )}
+                        </div>
                     </div>
+                    <button
+                        onClick={handleGenerate}
+                        disabled={isLoading || !customPrompt.trim() || isUpscaling || userCredits < cost}
+                        className="w-full flex justify-center items-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg"
+                    >
+                        {isLoading ? <><Spinner /> {statusMessage || 'Đang xử lý...'}</> : 'Bắt đầu Render'}
+                    </button>
+                     {error && <p className="mt-3 text-xs text-red-500 text-center bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800">{error}</p>}
+                </div>
+            </div>
 
-                    {/* Main Canvas Area */}
-                    <div className="w-full aspect-[4/3] bg-gray-100 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center overflow-hidden relative group">
-                        {isLoading && (
-                            <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
-                                <div className="w-16 h-16 border-4 border-accent-200 border-t-accent-600 rounded-full animate-spin mb-4"></div>
-                                <p className="text-accent-600 dark:text-accent-400 font-medium animate-pulse">AI đang vẽ...</p>
-                            </div>
-                        )}
+            {/* --- RESULTS SECTION --- */}
+            <div>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <h3 className="text-lg font-bold text-text-primary dark:text-white flex items-center gap-2">
+                         Kết quả
+                    </h3>
+                    
+                    {/* Action Buttons for Result */}
+                    {resultImages.length === 1 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            {!upscaledImage && (
+                                <button
+                                    onClick={handleUpscale}
+                                    disabled={isUpscaling || isLoading}
+                                    className="flex items-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-yellow-500/20"
+                                >
+                                    {isUpscaling ? <Spinner/> : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                    )}
+                                    <span>Upscale</span>
+                                </button>
+                            )}
+                            <button
+                                onClick={() => handleSendImageToSync(upscaledImage || resultImages[0])}
+                                className="text-accent-600 dark:text-accent-400 bg-accent-50 dark:bg-accent-900/20 hover:bg-accent-100 dark:hover:bg-accent-900/40 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-accent-200 dark:border-accent-800"
+                            >
+                                Đồng bộ View
+                            </button>
+                            <button
+                                onClick={() => setPreviewImage(upscaledImage || resultImages[0])}
+                                className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 p-1.5 rounded-lg transition-colors"
+                                title="Phóng to"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
+                            </button>
+                             <button onClick={handleDownload} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium shadow-sm transition-colors">
+                                Tải xuống
+                            </button>
+                        </div>
+                    )}
+                </div>
 
-                        {!isLoading && upscaledImage && resultImages.length === 1 && (
-                             <ImageComparator originalImage={resultImages[0]} resultImage={upscaledImage} />
-                        )}
-                        {!isLoading && !upscaledImage && resultImages.length === 1 && sourceImage && (
-                             <ImageComparator originalImage={sourceImage.objectURL} resultImage={resultImages[0]} />
-                        )}
-                         {!isLoading && !upscaledImage && resultImages.length === 1 && !sourceImage && (
-                            <img src={resultImages[0]} alt="Generated Result" className="w-full h-full object-contain" />
-                        )}
-                         {!isLoading && resultImages.length > 1 && (
-                            <ResultGrid images={resultImages} toolName="architecture-render" onSendToViewSync={handleSendImageToSync} />
-                        )}
-                        {!isLoading && resultImages.length === 0 && (
-                            <div className="text-center p-8 opacity-50">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 md:h-20 md:w-20 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <p className="text-gray-500 dark:text-gray-400 text-base md:text-lg">Kết quả render sẽ xuất hiện ở đây</p>
-                                <p className="text-xs md:text-sm text-gray-400 dark:text-gray-500">Hãy nhập mô tả hoặc tải ảnh lên để bắt đầu</p>
-                            </div>
-                        )}
-                    </div>
+                {/* Main Canvas Area */}
+                <div className="w-full aspect-[4/3] bg-gray-100 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center overflow-hidden relative group">
+                    {isLoading && (
+                        <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
+                            <div className="w-16 h-16 border-4 border-accent-200 border-t-accent-600 rounded-full animate-spin mb-4"></div>
+                            <p className="text-accent-600 dark:text-accent-400 font-medium animate-pulse">AI đang vẽ...</p>
+                        </div>
+                    )}
+
+                    {!isLoading && upscaledImage && resultImages.length === 1 && (
+                         <ImageComparator originalImage={resultImages[0]} resultImage={upscaledImage} />
+                    )}
+                    {!isLoading && !upscaledImage && resultImages.length === 1 && sourceImage && (
+                         <ImageComparator originalImage={sourceImage.objectURL} resultImage={resultImages[0]} />
+                    )}
+                     {!isLoading && !upscaledImage && resultImages.length === 1 && !sourceImage && (
+                        <img src={resultImages[0]} alt="Generated Result" className="w-full h-full object-contain" />
+                    )}
+                     {!isLoading && resultImages.length > 1 && (
+                        <ResultGrid images={resultImages} toolName="architecture-render" onSendToViewSync={handleSendImageToSync} />
+                    )}
+                    {!isLoading && resultImages.length === 0 && (
+                        <div className="text-center p-8 opacity-50">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 md:h-20 md:w-20 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-gray-500 dark:text-gray-400 text-base md:text-lg">Kết quả render sẽ xuất hiện ở đây</p>
+                            <p className="text-xs md:text-sm text-gray-400 dark:text-gray-500">Hãy nhập mô tả hoặc tải ảnh lên để bắt đầu</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
