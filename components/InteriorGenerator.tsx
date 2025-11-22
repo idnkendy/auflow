@@ -4,7 +4,7 @@ import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
 import * as jobService from '../services/jobService';
 import { refundCredits } from '../services/paymentService';
-import { FileData, Tool, AspectRatio } from '../types';
+import { FileData, Tool, AspectRatio, ImageResolution } from '../types';
 import { InteriorGeneratorState } from '../state/toolState';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
@@ -13,6 +13,7 @@ import NumberOfImagesSelector from './common/NumberOfImagesSelector';
 import ResultGrid from './common/ResultGrid';
 import OptionSelector from './common/OptionSelector';
 import AspectRatioSelector from './common/AspectRatioSelector';
+import ResolutionSelector from './common/ResolutionSelector';
 import ImagePreviewModal from './common/ImagePreviewModal';
 import { supabase } from '../services/supabaseClient';
 
@@ -73,7 +74,7 @@ interface InteriorGeneratorProps {
 const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateChange, onSendToViewSync, userCredits = 0, onDeductCredits }) => {
     const { 
         style, roomType, lighting, colorPalette, customPrompt, referenceImage, sourceImage, 
-        isLoading, isUpscaling, error, resultImages, upscaledImage, numberOfImages, aspectRatio 
+        isLoading, isUpscaling, error, resultImages, upscaledImage, numberOfImages, aspectRatio, resolution
     } = state;
 
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -133,6 +134,10 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
         onStateChange({ colorPalette: newVal });
     };
 
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
+
     const handleFileSelect = (fileData: FileData | null) => {
         onStateChange({
             sourceImage: fileData,
@@ -189,7 +194,7 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
 
         try {
             if (onDeductCredits) {
-                logId = await onDeductCredits(cost, `Render nội thất (${numberOfImages} ảnh)`);
+                logId = await onDeductCredits(cost, `Render nội thất (${numberOfImages} ảnh) - ${resolution || '1K'}`);
             }
 
             const { data: { user } } = await supabase.auth.getUser();
@@ -205,14 +210,24 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
 
             if (jobId) await jobService.updateJobStatus(jobId, 'processing');
 
-            let results;
-             if (referenceImage) {
-                 const promptWithRef = `${promptForService} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
-                 // Pass jobId to API call
-                 results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages, jobId || undefined);
+            let results: { imageUrl: string }[];
+            
+            // High Quality Logic
+            if (resolution === '2K' || resolution === '4K') {
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    const images = await geminiService.generateHighQualityImage(customPrompt, aspectRatio, resolution, sourceImage || undefined);
+                    return images[0];
+                });
+                const images = await Promise.all(promises);
+                results = images.map(url => ({ imageUrl: url })); // Normalize structure
             } else {
-                 // Pass jobId to API call
-                 results = await geminiService.editImage(promptForService, sourceImage, numberOfImages, jobId || undefined);
+                // Standard Logic
+                 if (referenceImage) {
+                     const promptWithRef = `${promptForService} Also, take aesthetic inspiration (colors, materials, atmosphere) from the provided reference image.`;
+                     results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages, jobId || undefined);
+                } else {
+                     results = await geminiService.editImage(promptForService, sourceImage, numberOfImages, jobId || undefined);
+                }
             }
             
             const imageUrls = results.map(r => r.imageUrl);
@@ -363,9 +378,10 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
                                 </div>
                             </div>
                             
-                            <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                                <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading || isUpscaling} />
                                <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading || isUpscaling} />
+                               <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading || isUpscaling} />
                             </div>
                         </div>
                     </div>
@@ -425,7 +441,7 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
                                     title="Chuyển ảnh này tới Đồng Bộ View để xử lý tiếp"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H-2a2 2 0 01-2-2v-2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 01-2 2H-2a2 2 0 01-2-2v-2z" />
                                     </svg>
                                     Đồng bộ
                                 </button>

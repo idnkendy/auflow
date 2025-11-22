@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
-import { FileData, Tool, AspectRatio } from '../types';
+import { FileData, Tool, AspectRatio, ImageResolution } from '../types';
 import { LandscapeRenderingState } from '../state/toolState';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
@@ -11,6 +11,7 @@ import NumberOfImagesSelector from './common/NumberOfImagesSelector';
 import ResultGrid from './common/ResultGrid';
 import OptionSelector from './common/OptionSelector';
 import AspectRatioSelector from './common/AspectRatioSelector';
+import ResolutionSelector from './common/ResolutionSelector';
 import ImagePreviewModal from './common/ImagePreviewModal';
 
 const gardenStyleOptions = [
@@ -60,7 +61,7 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
     const { 
         gardenStyle, timeOfDay, features, customPrompt, referenceImage, 
         sourceImage, isLoading, isUpscaling, error, resultImages, upscaledImage, 
-        numberOfImages, aspectRatio 
+        numberOfImages, aspectRatio, resolution
     } = state;
     
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -114,6 +115,10 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
         onStateChange({ features: newVal });
     };
 
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
+
     const handleFileSelect = (fileData: FileData | null) => {
         onStateChange({ 
             sourceImage: fileData, 
@@ -161,47 +166,51 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
         try {
             // Deduct credits
             if (onDeductCredits) {
-                await onDeductCredits(cost, `Render sân vườn (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `Render sân vườn (${numberOfImages} ảnh) - ${resolution || '1K'}`);
             }
-    
-            if (sourceImage) {
-                // Image-to-Image Generation (from a sketch or photo)
-                const promptForService = `Generate a photorealistic landscape/garden rendering with a strict aspect ratio of ${aspectRatio}. Develop the provided sketch/photo into a complete 3D scene. Adapt the composition to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}`;
-                
-                let results;
-                if (referenceImage) {
-                    const promptWithRef = `${promptForService} Also, take aesthetic inspiration (planting style, materials, atmosphere) from the provided reference image.`;
-                    results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages);
+
+            let imageUrls: string[] = [];
+
+            // High Quality Logic
+            if (resolution === '2K' || resolution === '4K') {
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    const images = await geminiService.generateHighQualityImage(customPrompt, aspectRatio, resolution, sourceImage || undefined);
+                    return images[0];
+                });
+                imageUrls = await Promise.all(promises);
+            } 
+            // Standard Quality Logic
+            else {
+                if (sourceImage) {
+                    // Image-to-Image Generation (from a sketch or photo)
+                    const promptForService = `Generate a photorealistic landscape/garden rendering with a strict aspect ratio of ${aspectRatio}. Develop the provided sketch/photo into a complete 3D scene. Adapt the composition to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}`;
+                    
+                    let results;
+                    if (referenceImage) {
+                        const promptWithRef = `${promptForService} Also, take aesthetic inspiration (planting style, materials, atmosphere) from the provided reference image.`;
+                        results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages);
+                    } else {
+                        results = await geminiService.editImage(promptForService, sourceImage, numberOfImages);
+                    }
+                    imageUrls = results.map(r => r.imageUrl);
                 } else {
-                    results = await geminiService.editImage(promptForService, sourceImage, numberOfImages);
+                    // Text-to-Image Generation
+                    const promptForService = `${customPrompt}, photorealistic landscape rendering, detailed garden design, high detail, masterpiece`;
+                    imageUrls = await geminiService.generateImage(promptForService, aspectRatio, numberOfImages);
                 }
-                
-                const imageUrls = results.map(r => r.imageUrl);
-                onStateChange({ resultImages: imageUrls });
-                
-                imageUrls.forEach(url => {
-                    historyService.addToHistory({
-                        tool: Tool.LandscapeRendering,
-                        prompt: promptForService,
-                        sourceImageURL: sourceImage.objectURL,
-                        resultImageURL: url,
-                    });
-                });
-            } else {
-                // Text-to-Image Generation
-                const promptForService = `${customPrompt}, photorealistic landscape rendering, detailed garden design, high detail, masterpiece`;
-                
-                const imageUrls = await geminiService.generateImage(promptForService, aspectRatio, numberOfImages);
-                onStateChange({ resultImages: imageUrls });
-                
-                imageUrls.forEach(url => {
-                    historyService.addToHistory({
-                        tool: Tool.LandscapeRendering,
-                        prompt: promptForService,
-                        resultImageURL: url,
-                    });
-                });
             }
+            
+            onStateChange({ resultImages: imageUrls });
+            
+            imageUrls.forEach(url => {
+                historyService.addToHistory({
+                    tool: Tool.LandscapeRendering,
+                    prompt: customPrompt,
+                    sourceImageURL: sourceImage?.objectURL,
+                    resultImageURL: url,
+                });
+            });
+
         } catch (err: any) {
             onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
         } finally {
@@ -310,9 +319,10 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
                                 </div>
                             </div>
                             
-                            <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                                <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({numberOfImages: val})} disabled={isLoading || isUpscaling} />
                                <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({aspectRatio: val})} disabled={isLoading || isUpscaling} />
+                               <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading || isUpscaling} />
                             </div>
                         </div>
                     </div>

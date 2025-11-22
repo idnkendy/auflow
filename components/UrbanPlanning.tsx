@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
-import { FileData, Tool, AspectRatio } from '../types';
+import { FileData, Tool, AspectRatio, ImageResolution } from '../types';
 import { UrbanPlanningState } from '../state/toolState';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
@@ -11,6 +11,7 @@ import NumberOfImagesSelector from './common/NumberOfImagesSelector';
 import ResultGrid from './common/ResultGrid';
 import OptionSelector from './common/OptionSelector';
 import AspectRatioSelector from './common/AspectRatioSelector';
+import ResolutionSelector from './common/ResolutionSelector';
 import ImagePreviewModal from './common/ImagePreviewModal';
 
 const viewTypeOptions = [
@@ -56,7 +57,7 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
     const { 
         viewType, density, lighting, customPrompt, referenceImage, 
         sourceImage, isLoading, isUpscaling, error, resultImages, upscaledImage, 
-        numberOfImages, aspectRatio 
+        numberOfImages, aspectRatio, resolution
     } = state;
     
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -110,6 +111,10 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
         onStateChange({ lighting: newVal });
     };
 
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
+
     const handleFileSelect = (fileData: FileData | null) => {
         onStateChange({ 
             sourceImage: fileData, 
@@ -156,49 +161,51 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
         
         try {
              if (onDeductCredits) {
-                await onDeductCredits(cost, `Render quy hoạch (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `Render quy hoạch (${numberOfImages} ảnh) - ${resolution || '1K'}`);
             }
 
-            // Logic branching based on sourceImage
-            if (sourceImage) {
-                // Image-to-Image Generation (from a site plan)
-                const promptForService = `Generate a photorealistic urban planning render with a strict aspect ratio of ${aspectRatio}. Develop the provided 2D site plan into a 3D environment. Adapt the composition to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}`;
-                
-                let results;
-                if (referenceImage) {
-                    const promptWithRef = `${promptForService} Also, take aesthetic inspiration (architectural style, materials, atmosphere) from the provided reference image.`;
-                    results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages);
+            let imageUrls: string[] = [];
+
+            // High Quality Logic
+            if (resolution === '2K' || resolution === '4K') {
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    const images = await geminiService.generateHighQualityImage(customPrompt, aspectRatio, resolution, sourceImage || undefined);
+                    return images[0];
+                });
+                imageUrls = await Promise.all(promises);
+            } 
+            // Standard Quality Logic
+            else {
+                if (sourceImage) {
+                    // Image-to-Image Generation (from a site plan)
+                    const promptForService = `Generate a photorealistic urban planning render with a strict aspect ratio of ${aspectRatio}. Develop the provided 2D site plan into a 3D environment. Adapt the composition to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${customPrompt}`;
+                    
+                    let results;
+                    if (referenceImage) {
+                        const promptWithRef = `${promptForService} Also, take aesthetic inspiration (architectural style, materials, atmosphere) from the provided reference image.`;
+                        results = await geminiService.editImageWithReference(promptWithRef, sourceImage, referenceImage, numberOfImages);
+                    } else {
+                        results = await geminiService.editImage(promptForService, sourceImage, numberOfImages);
+                    }
+                    imageUrls = results.map(r => r.imageUrl);
                 } else {
-                    results = await geminiService.editImage(promptForService, sourceImage, numberOfImages);
+                    // Text-to-Image Generation
+                    const promptForService = `${customPrompt}, photorealistic urban planning, master plan rendering, high detail, masterpiece`;
+                    imageUrls = await geminiService.generateImage(promptForService, aspectRatio, numberOfImages);
                 }
-                
-                const imageUrls = results.map(r => r.imageUrl);
-                onStateChange({ resultImages: imageUrls });
-                
-                imageUrls.forEach(url => {
-                    historyService.addToHistory({
-                        tool: Tool.UrbanPlanning,
-                        prompt: promptForService,
-                        sourceImageURL: sourceImage.objectURL,
-                        resultImageURL: url,
-                    });
-                });
-        
-            } else {
-                // Text-to-Image Generation
-                const promptForService = `${customPrompt}, photorealistic urban planning, master plan rendering, high detail, masterpiece`;
-                
-                const imageUrls = await geminiService.generateImage(promptForService, aspectRatio, numberOfImages);
-                onStateChange({ resultImages: imageUrls });
-                
-                imageUrls.forEach(url => {
-                    historyService.addToHistory({
-                        tool: Tool.UrbanPlanning,
-                        prompt: promptForService,
-                        resultImageURL: url,
-                    });
-                });
             }
+            
+            onStateChange({ resultImages: imageUrls });
+            
+            imageUrls.forEach(url => {
+                historyService.addToHistory({
+                    tool: Tool.UrbanPlanning,
+                    prompt: customPrompt,
+                    sourceImageURL: sourceImage?.objectURL,
+                    resultImageURL: url,
+                });
+            });
+
         } catch (err: any) {
             onStateChange({ error: err.message || 'Đã xảy ra lỗi không mong muốn.' });
         } finally {
@@ -321,9 +328,10 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                                 </div>
                             </div>
                             
-                            <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                                <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading || isUpscaling} />
                                <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({ aspectRatio: val })} disabled={isLoading || isUpscaling} />
+                               <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading || isUpscaling} />
                             </div>
                         </div>
                     </div>

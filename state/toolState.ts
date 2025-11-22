@@ -1,5 +1,5 @@
 
-import { FileData, AspectRatio, Tool } from '../types';
+import { FileData, AspectRatio, Tool, ImageResolution } from '../types';
 
 // Định nghĩa cấu trúc trạng thái cho từng công cụ
 
@@ -19,6 +19,7 @@ export interface ImageGeneratorState {
     upscaledImage: string | null;
     numberOfImages: number;
     aspectRatio: AspectRatio;
+    resolution: ImageResolution;
 }
 
 export interface InteriorGeneratorState extends Omit<ImageGeneratorState, 'buildingType' | 'context' | 'weather'> {
@@ -40,6 +41,7 @@ export interface UrbanPlanningState {
     upscaledImage: string | null;
     numberOfImages: number;
     aspectRatio: AspectRatio;
+    resolution: ImageResolution;
 }
 
 export interface LandscapeRenderingState {
@@ -56,6 +58,7 @@ export interface LandscapeRenderingState {
     upscaledImage: string | null;
     numberOfImages: number;
     aspectRatio: AspectRatio;
+    resolution: ImageResolution;
 }
 
 export interface VideoGeneratorState {
@@ -268,6 +271,7 @@ export const initialToolStates = {
         upscaledImage: null,
         numberOfImages: 1,
         aspectRatio: '4:3',
+        resolution: '1K',
     } as ImageGeneratorState,
     [Tool.InteriorRendering]: {
         style: 'none',
@@ -284,6 +288,7 @@ export const initialToolStates = {
         upscaledImage: null,
         numberOfImages: 1,
         aspectRatio: '4:3',
+        resolution: '1K',
     } as InteriorGeneratorState,
     [Tool.UrbanPlanning]: {
         viewType: 'none',
@@ -299,6 +304,7 @@ export const initialToolStates = {
         upscaledImage: null,
         numberOfImages: 1,
         aspectRatio: '16:9',
+        resolution: '1K',
     } as UrbanPlanningState,
     [Tool.LandscapeRendering]: {
         gardenStyle: 'none',
@@ -314,6 +320,7 @@ export const initialToolStates = {
         upscaledImage: null,
         numberOfImages: 1,
         aspectRatio: '16:9',
+        resolution: '1K',
     } as LandscapeRenderingState,
     [Tool.FloorPlan]: {
         prompt: 'Render theo phong cách Scandinavian với nội thất gỗ sồi, tường trắng và nhiều ánh sáng tự nhiên.',

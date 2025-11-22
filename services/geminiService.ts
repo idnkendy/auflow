@@ -1,6 +1,6 @@
 
-import { GoogleGenAI, Modality, Operation, GenerateVideosResponse, Type } from "@google/genai";
-import { AspectRatio, FileData } from "../types";
+import { GoogleGenAI, Modality, Operation, GenerateVideosResponse, Type, GenerateContentResponse } from "@google/genai";
+import { AspectRatio, FileData, ImageResolution } from "../types";
 import { supabase } from "./supabaseClient";
 import { updateJobApiKey } from "./jobService";
 
@@ -251,6 +251,78 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio, nu
         throw error;
     }
 };
+
+// --- NEW: High Quality 2K/4K Generation with Gemini 3.0 Pro ---
+// Must use user's own key via window.aistudio
+export const generateHighQualityImage = async (
+    prompt: string, 
+    aspectRatio: AspectRatio, 
+    resolution: '2K' | '4K',
+    sourceImage?: FileData
+): Promise<string[]> => {
+    
+    // @ts-ignore
+    if (typeof window.aistudio === 'undefined' || typeof window.aistudio.hasSelectedApiKey !== 'function') {
+        throw new Error("Chức năng chọn Key chưa khả dụng trên trình duyệt này.");
+    }
+
+    // @ts-ignore
+    const hasKey = await window.aistudio.hasSelectedApiKey();
+    if (!hasKey) {
+        // @ts-ignore
+        await window.aistudio.openSelectKey();
+        // Assume success after closing dialog (race condition handling handled by app logic mostly, 
+        // but here we just proceed to create client)
+    }
+
+    // Create client with user's selected key
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    const contents: any = { parts: [] };
+    
+    // Handle input parts
+    if (sourceImage) {
+        contents.parts.push({
+            inlineData: {
+                mimeType: sourceImage.mimeType,
+                data: sourceImage.base64
+            }
+        });
+        contents.parts.push({ text: `${prompt}. Maintain composition from image.` });
+    } else {
+        contents.parts.push({ text: prompt });
+    }
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-image-preview',
+        contents: contents,
+        config: {
+            imageConfig: {
+                aspectRatio: aspectRatio,
+                imageSize: resolution
+            }
+        },
+    });
+
+    // Extract images
+    const images: string[] = [];
+    if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                images.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+            } else if (part.text) {
+                console.log("Gemini 3.0 Text Output:", part.text);
+            }
+        }
+    }
+
+    if (images.length === 0) {
+        throw new Error("Gemini 3.0 Pro không trả về hình ảnh. Có thể do nội dung bị chặn hoặc lỗi hệ thống.");
+    }
+
+    return images;
+};
+
 
 export const generateVideo = async (prompt: string, startImage?: FileData, jobId?: string): Promise<string> => {
     return withSmartRetry(async (ai, key) => {

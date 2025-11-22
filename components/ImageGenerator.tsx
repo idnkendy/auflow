@@ -4,7 +4,7 @@ import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
 import * as jobService from '../services/jobService';
 import { refundCredits } from '../services/paymentService';
-import { FileData, Tool, AspectRatio } from '../types';
+import { FileData, Tool, AspectRatio, ImageResolution } from '../types';
 import { ImageGeneratorState } from '../state/toolState';
 import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
@@ -13,6 +13,7 @@ import NumberOfImagesSelector from './common/NumberOfImagesSelector';
 import ResultGrid from './common/ResultGrid';
 import OptionSelector from './common/OptionSelector';
 import AspectRatioSelector from './common/AspectRatioSelector';
+import ResolutionSelector from './common/ResolutionSelector';
 import ImagePreviewModal from './common/ImagePreviewModal';
 import { supabase } from '../services/supabaseClient';
 
@@ -83,7 +84,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
     const { 
         style, context, lighting, weather, buildingType, customPrompt, referenceImage, 
         sourceImage, isLoading, isUpscaling, error, resultImages, upscaledImage, 
-        numberOfImages, aspectRatio 
+        numberOfImages, aspectRatio, resolution 
     } = state;
     
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -150,6 +151,10 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         onStateChange({ weather: newVal });
     };
 
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
+
     const handleFileSelect = (fileData: FileData | null) => {
         onStateChange({ 
             sourceImage: fileData, 
@@ -188,8 +193,19 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         referenceImage: FileData | null, 
         numberOfImages: number,
         aspectRatio: AspectRatio,
+        resolution: ImageResolution,
         jobId?: string
     ): Promise<string[]> => {
+        // Logic for High Quality (Gemini 3.0 Pro)
+        if (resolution === '2K' || resolution === '4K') {
+            const promises = Array.from({ length: numberOfImages }).map(async () => {
+                const images = await geminiService.generateHighQualityImage(prompt, aspectRatio, resolution, sourceImage || undefined);
+                return images[0];
+            });
+            return await Promise.all(promises);
+        }
+
+        // Logic for Standard Quality (Imagen/Flash)
          if (sourceImage) {
             // Image-to-Image Generation
             const promptForService = `Generate an image with a strict aspect ratio of ${aspectRatio}. Adapt the composition from the source image to fit this new frame. Do not add black bars or letterbox. The main creative instruction is: ${prompt}`;
@@ -230,7 +246,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         try {
             // 1. Deduct credits first & Get Log ID
             if (onDeductCredits) {
-                logId = await onDeductCredits(cost, `Render kiến trúc (${numberOfImages} ảnh)`);
+                logId = await onDeductCredits(cost, `Render kiến trúc (${numberOfImages} ảnh) - ${resolution}`);
             }
             
             // 2. Create Job (Pending)
@@ -251,26 +267,34 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
             let imageUrls: string[] = [];
             let success = false;
 
-            while (attempts < maxAttempts) {
-                try {
-                     if (jobId) await jobService.updateJobStatus(jobId, 'processing');
-                     
-                     imageUrls = await performGeneration(customPrompt, sourceImage, referenceImage, numberOfImages, aspectRatio, jobId || undefined);
-                     
-                     success = true;
-                     break;
-
-                } catch (apiError: any) {
-                    if (apiError.message === 'SYSTEM_BUSY') {
-                        attempts++;
-                        console.warn(`System busy, retrying... (${attempts}/${maxAttempts})`);
-                        setStatusMessage(`Hệ thống đang bận (${attempts}), vui lòng đợi trong giây lát...`);
-                        
-                        if (jobId) await jobService.updateJobStatus(jobId, 'pending');
-
-                        await new Promise(resolve => setTimeout(resolve, 5000)); 
-                    } else {
-                        throw apiError; 
+            // For HQ (2K/4K), we don't use the retry loop because it involves user interaction with window.aistudio
+            if (resolution === '2K' || resolution === '4K') {
+                 if (jobId) await jobService.updateJobStatus(jobId, 'processing');
+                 imageUrls = await performGeneration(customPrompt, sourceImage, referenceImage, numberOfImages, aspectRatio, resolution, jobId || undefined);
+                 success = true;
+            } else {
+                // Standard Retry Loop for other models
+                while (attempts < maxAttempts) {
+                    try {
+                         if (jobId) await jobService.updateJobStatus(jobId, 'processing');
+                         
+                         imageUrls = await performGeneration(customPrompt, sourceImage, referenceImage, numberOfImages, aspectRatio, resolution, jobId || undefined);
+                         
+                         success = true;
+                         break;
+    
+                    } catch (apiError: any) {
+                        if (apiError.message === 'SYSTEM_BUSY') {
+                            attempts++;
+                            console.warn(`System busy, retrying... (${attempts}/${maxAttempts})`);
+                            setStatusMessage(`Hệ thống đang bận (${attempts}), vui lòng đợi trong giây lát...`);
+                            
+                            if (jobId) await jobService.updateJobStatus(jobId, 'pending');
+    
+                            await new Promise(resolve => setTimeout(resolve, 5000)); 
+                        } else {
+                            throw apiError; 
+                        }
                     }
                 }
             }
@@ -443,9 +467,10 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                         </div>
                         
                         {/* Output Settings */}
-                        <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({numberOfImages: val})} disabled={isLoading || isUpscaling} />
                             <AspectRatioSelector value={aspectRatio} onChange={(val) => onStateChange({aspectRatio: val})} disabled={isLoading || isUpscaling} />
+                            <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading || isUpscaling} />
                         </div>
                     </div>
                 </div>
