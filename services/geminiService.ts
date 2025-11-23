@@ -69,8 +69,8 @@ const getErrorDetails = (error: any) => {
 
 const markKeyAsExhausted = async (key: string) => {
     try {
-        const envKey = getEnvironmentApiKey();
-        if (key && key !== envKey) {
+        // Only mark if it's a valid key string
+        if (key && key.length > 10) {
             console.warn(`[GeminiService] Marking key ...${key.slice(-4)} as exhausted.`);
             await supabase.rpc('mark_key_exhausted', { key_val: key });
         }
@@ -80,6 +80,7 @@ const markKeyAsExhausted = async (key: string) => {
 };
 
 const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: string }> => {
+    // Always use Worker Keys (Supabase) as requested
     try {
         if (!supabase) {
             throw new Error("SYSTEM_BUSY"); 
@@ -295,34 +296,13 @@ export const generateHighQualityImage = async (
     prompt: string, 
     aspectRatio: AspectRatio, 
     resolution: ImageResolution,
-    sourceImage?: FileData
+    sourceImage?: FileData,
+    jobId?: string
 ): Promise<string[]> => {
     
-    try {
-        // @ts-ignore
-        if (typeof window.aistudio === 'undefined' || typeof window.aistudio.hasSelectedApiKey !== 'function') {
-            throw new Error("Chức năng chọn Key chưa khả dụng. Vui lòng sử dụng Project IDX hoặc AI Studio.");
-        }
+    console.log("[GeminiService] Generating High Quality Image (Nano Banana Pro / Gemini 3.0)");
 
-        // @ts-ignore
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            // @ts-ignore
-            await window.aistudio.openSelectKey();
-        }
-
-        const apiKey = getEnvironmentApiKey();
-        if (!apiKey) {
-            // Wait a moment for the key to potentially propagate if just selected
-            await new Promise(r => setTimeout(r, 500));
-            const retryKey = getEnvironmentApiKey();
-            if (!retryKey) {
-                 throw new Error("Không tìm thấy API Key. Vui lòng thử lại hoặc làm mới trang.");
-            }
-        }
-
-        const ai = new GoogleGenAI({ apiKey: getEnvironmentApiKey() });
-
+    return withSmartRetry(async (ai) => {
         const contents: any = { parts: [] };
         
         if (sourceImage) {
@@ -332,6 +312,8 @@ export const generateHighQualityImage = async (
                     data: sourceImage.base64
                 }
             });
+            // Note: For 3.0 Pro Image, verify if text should be appended or in a separate part structure.
+            // This structure (Image Part + Text Part) works for multimodal inputs.
             contents.parts.push({ text: `${prompt}. Maintain composition from image.` });
         } else {
             contents.parts.push({ text: prompt });
@@ -366,14 +348,7 @@ export const generateHighQualityImage = async (
         }
 
         return images;
-
-    } catch (error: any) {
-        // Catch 'Failed to fetch' specifically
-        if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
-            throw new Error("Lỗi kết nối mạng hoặc lỗi API Key. Vui lòng kiểm tra kết nối và thử lại.");
-        }
-        throw error;
-    }
+    }, jobId);
 };
 
 

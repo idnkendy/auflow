@@ -12,6 +12,19 @@ const UserIcon = () => (
     </svg>
 );
 
+const GiftIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M5 5a3 3 0 015-2.236A3 3 0 0114.83 6H16a2 2 0 110 4h-5V9a1 1 0 10-2 0v1H4a2 2 0 110-4h1.17C5.06 5.687 5 5.35 5 5zm4 1V5a1 1 0 10-1 1h1zm3 0a1 1 0 10-1-1v1h1z" clipRule="evenodd" />
+        <path d="M9 11H3v5a2 2 0 002 2h4v-7zM11 18h4a2 2 0 002-2v-5h-6v7z" />
+    </svg>
+);
+
+const CoinIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
 interface UserProfileProps {
     session: Session;
     initialTab?: 'profile' | 'plans' | 'history';
@@ -26,6 +39,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
     // History State
     const [transactionHistory, setTransactionHistory] = useState<Transaction[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    // Giftcode State
+    const [giftCode, setGiftCode] = useState('');
+    const [isRedeeming, setIsRedeeming] = useState(false);
+    const [redeemStatus, setRedeemStatus] = useState<{type: 'success' | 'error', msg: string} | null>(null);
 
     useEffect(() => {
         // Fallback to profile if plans is requested but hidden
@@ -53,6 +71,30 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
     const handleTabClick = (tab: 'profile' | 'plans' | 'history') => {
         setActiveTab(tab);
         onTabChange(tab);
+    };
+
+    const handleRedeemCode = async () => {
+        if (!giftCode.trim()) return;
+        
+        setIsRedeeming(true);
+        setRedeemStatus(null);
+
+        try {
+            const creditsAdded = await paymentService.redeemGiftCode(session.user.id, giftCode);
+            setRedeemStatus({
+                type: 'success',
+                msg: `Thành công! Bạn đã nhận được ${creditsAdded} credits.`
+            });
+            setGiftCode('');
+            if (onPurchaseSuccess) onPurchaseSuccess(); // Refresh credits in header
+        } catch (err: any) {
+            setRedeemStatus({
+                type: 'error',
+                msg: err.message || "Mã không hợp lệ hoặc lỗi hệ thống."
+            });
+        } finally {
+            setIsRedeeming(false);
+        }
     };
 
     // Mock Profile Data
@@ -108,29 +150,77 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
 
                 {/* === TAB: PROFILE === */}
                 {activeTab === 'profile' && (
-                    <div className="space-y-6 animate-fade-in">
-                        <h3 className="text-2xl font-bold text-text-primary dark:text-white mb-4">Thông tin tài khoản</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Họ và tên</label>
-                                <input type="text" value={userName} disabled className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-300 opacity-70" />
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Email</label>
-                                <input type="email" value={userEmail} disabled className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-300 opacity-70" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Ngày tham gia</label>
-                                <input type="text" value={joinDate} disabled className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-300 opacity-70" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Gói hiện tại</label>
-                                <div className="w-full bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3 text-green-800 dark:text-green-300 font-semibold">
-                                    Miễn phí (Free Tier)
+                    <div className="space-y-8 animate-fade-in">
+                        <div>
+                            <h3 className="text-2xl font-bold text-text-primary dark:text-white mb-4">Thông tin tài khoản</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Họ và tên</label>
+                                    <input type="text" value={userName} disabled className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-300 opacity-70" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Email</label>
+                                    <input type="email" value={userEmail} disabled className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-300 opacity-70" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Ngày tham gia</label>
+                                    <input type="text" value={joinDate} disabled className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-300 opacity-70" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Gói hiện tại</label>
+                                    <div className="w-full bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3 text-green-800 dark:text-green-300 font-semibold">
+                                        Miễn phí (Free Tier)
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="pt-4 border-t border-border-color dark:border-gray-700">
+
+                        {/* GIFT CODE SECTION */}
+                        <div className="pt-6 border-t border-border-color dark:border-gray-700">
+                            <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-purple-100 dark:border-purple-800/50">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="bg-white dark:bg-gray-800 p-2 rounded-full shadow-sm">
+                                        <div className="text-purple-600 dark:text-purple-400">
+                                            <GiftIcon />
+                                        </div>
+                                    </div>
+                                    <h4 className="font-bold text-lg text-text-primary dark:text-white">Nhập mã quà tặng (Giftcode)</h4>
+                                </div>
+                                
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <input 
+                                        type="text" 
+                                        value={giftCode}
+                                        onChange={(e) => setGiftCode(e.target.value.toUpperCase())}
+                                        placeholder="Nhập mã của bạn"
+                                        className="flex-grow bg-white dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white focus:ring-2 focus:ring-accent focus:outline-none uppercase placeholder:normal-case"
+                                        disabled={isRedeeming}
+                                    />
+                                    <button 
+                                        onClick={handleRedeemCode}
+                                        disabled={!giftCode.trim() || isRedeeming}
+                                        className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[120px]"
+                                    >
+                                        {isRedeeming ? <Spinner /> : 'Áp dụng'}
+                                    </button>
+                                </div>
+                                
+                                {redeemStatus && (
+                                    <div className={`mt-3 text-sm flex items-center gap-2 ${redeemStatus.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                        {redeemStatus.type === 'success' ? (
+                                            <CoinIcon />
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                        {redeemStatus.msg}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="pt-6 border-t border-border-color dark:border-gray-700">
                             <h4 className="font-semibold text-text-primary dark:text-white mb-2">Bảo mật</h4>
                             <button className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-text-primary dark:text-white rounded-lg transition-colors text-sm">
                                 Đổi mật khẩu
@@ -164,7 +254,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
                                         {transactionHistory.map((tx) => (
                                             <tr key={tx.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                                                 <td className="px-6 py-4 font-mono whitespace-nowrap">{tx.transaction_code || tx.id.substring(0, 8)}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap">{tx.plan_name}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {tx.plan_name}
+                                                    {tx.payment_method === 'giftcode' && (
+                                                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                                                            Giftcode
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tx.amount)}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{new Date(tx.created_at).toLocaleDateString('vi-VN')}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
