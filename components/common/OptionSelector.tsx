@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 
 interface Option {
@@ -45,7 +46,7 @@ const OptionSelector: React.FC<OptionSelectorProps> = ({
   };
 
   return (
-    <div className={`relative ${isOpen ? 'z-50' : ''}`} ref={containerRef}>
+    <div className={`relative ${isOpen ? 'z-[100]' : 'z-10'}`} ref={containerRef}>
       <label htmlFor={id} className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">
         {label}
       </label>
@@ -78,8 +79,8 @@ const OptionSelector: React.FC<OptionSelectorProps> = ({
       {isOpen && (
         <div 
           className={`
-            absolute z-50 w-full mt-2 bg-white dark:bg-[#1E1E1E] 
-            border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl 
+            absolute z-[100] w-full mt-2 bg-white dark:bg-[#1E1E1E] 
+            border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl 
             overflow-hidden transition-all duration-200 origin-top animate-fade-in
           `}
         >

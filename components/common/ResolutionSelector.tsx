@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ImageResolution } from '../../types';
 
@@ -18,8 +19,8 @@ const ResolutionSelector: React.FC<ResolutionSelectorProps> = ({ value, onChange
   return (
     <div className="w-full">
         <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Chất lượng ảnh & Độ phân giải</label>
-        {/* Changed grid-cols to be 2 on default/md/lg and 4 only on xl to prevent cramping on tablet/laptop split views */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        {/* Optimized Grid: 2 cols on mobile/tablet, 4 cols on larger screens (lg+) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {options.map(option => (
                 <button
                     key={option.value}

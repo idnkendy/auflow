@@ -319,7 +319,8 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
                                 <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Tinh chỉnh tùy chọn</label>
                                 <div className="space-y-4">
                                     <OptionSelector id="style-selector" label="Phong cách vườn" options={gardenStyleOptions} value={gardenStyle} onChange={handleGardenStyleChange} disabled={isLoading} variant="grid" />
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {/* Optimized Grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
                                         <OptionSelector id="time-selector" label="Thời gian" options={timeOfDayOptions} value={timeOfDay} onChange={handleTimeOfDayChange} disabled={isLoading} variant="select" />
                                         <OptionSelector id="feature-selector" label="Thêm chi tiết" options={featureOptions} value={features} onChange={handleFeaturesChange} disabled={isLoading} variant="select" />
                                     </div>

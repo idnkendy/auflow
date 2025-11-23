@@ -328,7 +328,8 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                                 <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Tinh chỉnh tùy chọn</label>
                                 <div className="space-y-4">
                                     <OptionSelector id="view-type-selector" label="Góc nhìn" options={viewTypeOptions} value={viewType} onChange={handleViewTypeChange} disabled={isLoading} variant="grid" />
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {/* Optimized Grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
                                         <OptionSelector id="density-selector" label="Mật độ" options={densityOptions} value={density} onChange={handleDensityChange} disabled={isLoading} variant="select" />
                                         <OptionSelector id="lighting-selector-urban" label="Ánh sáng" options={lightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} variant="select" />
                                     </div>
