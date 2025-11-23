@@ -383,7 +383,7 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
                                     <OptionSelector id="style-selector-int" label="Phong cách thiết kế" options={styleOptions} value={style} onChange={handleStyleChange} disabled={isLoading} variant="grid" />
                                     
                                     {/* Optimized Grid */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <OptionSelector id="lighting-selector-int" label="Ánh sáng" options={interiorLightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} variant="select" />
                                         <OptionSelector id="color-palette-selector" label="Tone màu" options={colorPaletteOptions} value={colorPalette} onChange={handleColorPaletteChange} disabled={isLoading} variant="select" />
                                     </div>
