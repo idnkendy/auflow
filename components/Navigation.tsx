@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Tool } from '../types';
 
@@ -98,7 +99,6 @@ const utilityToolsGroup = {
         { tool: Tool.Staging, label: 'AI Staging', icon: <CubeIcon /> },
         { tool: Tool.SketchConverter, label: 'Ảnh thành Sketch', icon: <PencilAltIcon /> },
         { tool: Tool.AITechnicalDrawings, label: 'Bản vẽ kỹ thuật', icon: <RulerIcon /> },
-        { tool: Tool.LuBanRuler, label: 'Thước Lỗ Ban', icon: <RulerIcon /> },
         { tool: Tool.FengShui, label: 'Phong thủy', icon: <FengShuiIcon /> },
     ]
 };

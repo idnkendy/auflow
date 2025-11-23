@@ -214,12 +214,6 @@ export interface SketchConverterState {
     resolution: ImageResolution;
 }
 
-export interface LuBanRulerState {
-    width: string;
-    height: string;
-    checkDimension: 'width' | 'height';
-}
-
 export interface FengShuiState {
     name: string;
     birthDay: string;
@@ -249,6 +243,12 @@ export interface FengShuiState {
     bedroomDirection: string;
     eventType: string;
     vanKhanType: string;
+}
+
+export interface LuBanRulerState {
+    width: string;
+    height: string;
+    checkDimension: 'width' | 'height';
 }
 
 export interface PricingState {
@@ -463,11 +463,6 @@ export const initialToolStates = {
         detailLevel: 'medium',
         resolution: 'Standard',
     } as SketchConverterState,
-    [Tool.LuBanRuler]: {
-        width: '1940',
-        height: '810',
-        checkDimension: 'width',
-    } as LuBanRulerState,
     [Tool.FengShui]: {
         name: '',
         birthDay: '1',
@@ -498,6 +493,11 @@ export const initialToolStates = {
         eventType: 'dong-tho',
         vanKhanType: 'dong-tho',
     } as FengShuiState,
+    [Tool.LuBanRuler]: {
+        width: '1200',
+        height: '2400',
+        checkDimension: 'width',
+    } as LuBanRulerState,
     [Tool.Pricing]: {
         activeTab: 'plans'
     } as PricingState,

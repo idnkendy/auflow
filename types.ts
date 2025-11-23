@@ -19,8 +19,8 @@ export enum Tool {
   Staging = 'Staging',
   AITechnicalDrawings = 'AITechnicalDrawings',
   SketchConverter = 'SketchConverter',
-  LuBanRuler = 'LuBanRuler',
   FengShui = 'FengShui',
+  LuBanRuler = 'LuBanRuler',
   Pricing = 'Pricing',
 }
 

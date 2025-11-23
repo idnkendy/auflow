@@ -24,7 +24,6 @@ import PromptSuggester from './components/PromptSuggester';
 import PromptEnhancer from './components/PromptEnhancer';
 import AITechnicalDrawings from './components/AITechnicalDrawings';
 import SketchConverter from './components/SketchConverter';
-import LuBanRuler from './components/LuBanRuler';
 import FengShui from './components/FengShui';
 import UserProfile from './components/UserProfile';
 import { initialToolStates, ToolStates } from './state/toolState';
@@ -289,11 +288,6 @@ const App: React.FC = () => {
             onStateChange={(newState) => handleToolStateChange(Tool.SketchConverter, newState)}
             userCredits={userCredits}
             onDeductCredits={handleDeductCredits}
-        />;
-      case Tool.LuBanRuler:
-        return <LuBanRuler
-            state={toolStates.LuBanRuler}
-            onStateChange={(newState) => handleToolStateChange(Tool.LuBanRuler, newState)}
         />;
       case Tool.FengShui:
         return <FengShui

@@ -20,7 +20,6 @@ const toolDisplayNames: Record<string, string> = {
     [Tool.Upscale]: 'Upscale AI',
     [Tool.Moodboard]: 'Tạo ảnh Moodboard',
     [Tool.History]: 'Lịch sử',
-    [Tool.LuBanRuler]: 'Thước Lỗ Ban',
     [Tool.FengShui]: 'Phân tích Phong thủy',
 };
 
