@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 
 interface Option {
@@ -46,7 +45,7 @@ const OptionSelector: React.FC<OptionSelectorProps> = ({
   };
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className={`relative ${isOpen ? 'z-50' : ''}`} ref={containerRef}>
       <label htmlFor={id} className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">
         {label}
       </label>
