@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileData, Tool, ImageResolution } from '../types';
+import { FileData, Tool, ImageResolution, AspectRatio } from '../types';
 import { UpscaleState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -19,9 +19,34 @@ interface UpscaleProps {
     onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
+const getClosestAspectRatio = (width: number, height: number): AspectRatio => {
+    const ratio = width / height;
+    const ratios: { [key in AspectRatio]: number } = {
+        "1:1": 1,
+        "3:4": 3/4,
+        "4:3": 4/3,
+        "9:16": 9/16,
+        "16:9": 16/9
+    };
+    
+    let closest: AspectRatio = '1:1';
+    let minDiff = Infinity;
+
+    (Object.keys(ratios) as AspectRatio[]).forEach((r) => {
+        const diff = Math.abs(ratio - ratios[r]);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = r;
+        }
+    });
+    return closest;
+};
+
 const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { sourceImage, isLoading, error, upscaledImages, numberOfImages, resolution } = state;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [detectedAspectRatio, setDetectedAspectRatio] = useState<AspectRatio>('1:1');
+
     const upscalePrompt = "Upscale this image to a high resolution. Enhance the details, textures, and lighting to make it look photorealistic and professional. Do not change the composition or the core design.";
     
     // Calculate cost based on resolution
@@ -63,7 +88,7 @@ const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits = 0
             // High Quality (Pro) Logic
             if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
                 const promises = Array.from({ length: numberOfImages }).map(async () => {
-                    const images = await geminiService.generateHighQualityImage(upscalePrompt, '1:1', resolution, sourceImage || undefined);
+                    const images = await geminiService.generateHighQualityImage(upscalePrompt, detectedAspectRatio, resolution, sourceImage || undefined);
                     return { imageUrl: images[0] };
                 });
                 results = await Promise.all(promises);
@@ -92,6 +117,13 @@ const Upscale: React.FC<UpscaleProps> = ({ state, onStateChange, userCredits = 0
     };
     
     const handleFileSelect = (fileData: FileData | null) => {
+        if (fileData?.objectURL) {
+            const img = new Image();
+            img.onload = () => {
+                setDetectedAspectRatio(getClosestAspectRatio(img.width, img.height));
+            };
+            img.src = fileData.objectURL;
+        }
         onStateChange({ sourceImage: fileData, upscaledImages: [] });
     }
 

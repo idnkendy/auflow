@@ -49,7 +49,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
 
     try {
         if (mode === 'signup') {
-            const { error } = await supabase.auth.signUp({
+            const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
@@ -57,8 +57,16 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
                 }
             });
             if (error) throw error;
-            setMessage("Đăng ký thành công! Vui lòng kiểm tra email để xác thực.");
-            setLoading(false);
+            
+            // If auto-confirm is enabled or successful
+            if (data.session) {
+                 setMessage("Đăng ký thành công! Đang đăng nhập...");
+                 // Force reload to ensure session sync
+                 setTimeout(() => window.location.reload(), 500);
+            } else {
+                 setMessage("Đăng ký thành công! Vui lòng kiểm tra email để xác thực.");
+                 setLoading(false);
+            }
         } else {
             const { error, data } = await supabase.auth.signInWithPassword({
                 email,

@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { FileData, Tool, ImageResolution } from '../types';
+import React, { useState } from 'react';
+import { FileData, Tool, ImageResolution, AspectRatio } from '../types';
 import { SketchConverterState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -16,8 +16,32 @@ interface SketchConverterProps {
     onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
+const getClosestAspectRatio = (width: number, height: number): AspectRatio => {
+    const ratio = width / height;
+    const ratios: { [key in AspectRatio]: number } = {
+        "1:1": 1,
+        "3:4": 3/4,
+        "4:3": 4/3,
+        "9:16": 9/16,
+        "16:9": 16/9
+    };
+    
+    let closest: AspectRatio = '1:1';
+    let minDiff = Infinity;
+
+    (Object.keys(ratios) as AspectRatio[]).forEach((r) => {
+        const diff = Math.abs(ratio - ratios[r]);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = r;
+        }
+    });
+    return closest;
+};
+
 const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { sourceImage, isLoading, error, resultImage, sketchStyle, detailLevel, resolution } = state;
+    const [detectedAspectRatio, setDetectedAspectRatio] = useState<AspectRatio>('1:1');
     
     // Calculate cost based on resolution
     const getCostPerImage = () => {
@@ -33,6 +57,13 @@ const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange,
     const cost = getCostPerImage(); // Usually 1 image
 
     const handleFileSelect = (fileData: FileData | null) => {
+        if (fileData?.objectURL) {
+            const img = new Image();
+            img.onload = () => {
+                setDetectedAspectRatio(getClosestAspectRatio(img.width, img.height));
+            };
+            img.src = fileData.objectURL;
+        }
         onStateChange({
             sourceImage: fileData,
             resultImage: null,
@@ -90,7 +121,7 @@ const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange,
             // High Quality (Pro) Logic
             if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
                 // High Quality generator typically returns 1 image unless configured otherwise, we treat it as 1 here for sketch
-                const images = await geminiService.generateHighQualityImage(prompt, '1:1', resolution, sourceImage || undefined);
+                const images = await geminiService.generateHighQualityImage(prompt, detectedAspectRatio, resolution, sourceImage || undefined);
                 results = [{ imageUrl: images[0] }];
             } 
             // Standard (Flash) Logic

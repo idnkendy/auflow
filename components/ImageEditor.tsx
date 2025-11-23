@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileData, Tool, ImageResolution } from '../types';
+import { FileData, Tool, ImageResolution, AspectRatio } from '../types';
 import { ImageEditorState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -27,15 +27,46 @@ interface ImageEditorProps {
     onDeductCredits?: (amount: number, description: string) => Promise<string>;
 }
 
+const getClosestAspectRatio = (width: number, height: number): AspectRatio => {
+    const ratio = width / height;
+    const ratios: { [key in AspectRatio]: number } = {
+        "1:1": 1,
+        "3:4": 3/4,
+        "4:3": 4/3,
+        "9:16": 9/16,
+        "16:9": 16/9
+    };
+    
+    let closest: AspectRatio = '1:1';
+    let minDiff = Infinity;
+
+    (Object.keys(ratios) as AspectRatio[]).forEach((r) => {
+        const diff = Math.abs(ratio - ratios[r]);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = r;
+        }
+    });
+    return closest;
+};
+
 const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { prompt, sourceImage, maskImage, referenceImages, isLoading, error, resultImages, numberOfImages, resolution } = state;
     
     const [isMaskingModalOpen, setIsMaskingModalOpen] = useState<boolean>(false);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+    const [detectedAspectRatio, setDetectedAspectRatio] = useState<AspectRatio>('1:1');
 
 
     const handleFileSelect = (fileData: FileData | null) => {
+        if (fileData?.objectURL) {
+            const img = new Image();
+            img.onload = () => {
+                setDetectedAspectRatio(getClosestAspectRatio(img.width, img.height));
+            };
+            img.src = fileData.objectURL;
+        }
         onStateChange({
             sourceImage: fileData,
             resultImages: [],
@@ -116,10 +147,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange, userCre
                     // generateHighQualityImage accepts sourceImage and referenceImages
                     const images = await geminiService.generateHighQualityImage(
                         finalPrompt, 
-                        '1:1', // Aspect ratio is less strict for edit, but we pass 1:1 or reuse logic. 
-                               // Actually generateHighQualityImage uses content.parts so aspect ratio config might resize output.
-                               // Ideally we want to maintain source aspect ratio. 
-                               // For now, passing '1:1' as placeholder or we could detect from image if possible.
+                        detectedAspectRatio, // Use detected aspect ratio
                         resolution, 
                         sourceImage, 
                         undefined, 

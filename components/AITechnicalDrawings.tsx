@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { FileData, Tool, ImageResolution } from '../types';
+import React, { useState } from 'react';
+import { FileData, Tool, ImageResolution, AspectRatio } from '../types';
 import { AITechnicalDrawingsState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -30,8 +30,32 @@ const detailLevelOptions = [
     { value: 'terrain', label: 'Kèm địa hình' },
 ];
 
+const getClosestAspectRatio = (width: number, height: number): AspectRatio => {
+    const ratio = width / height;
+    const ratios: { [key in AspectRatio]: number } = {
+        "1:1": 1,
+        "3:4": 3/4,
+        "4:3": 4/3,
+        "9:16": 9/16,
+        "16:9": 16/9
+    };
+    
+    let closest: AspectRatio = '1:1';
+    let minDiff = Infinity;
+
+    (Object.keys(ratios) as AspectRatio[]).forEach((r) => {
+        const diff = Math.abs(ratio - ratios[r]);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = r;
+        }
+    });
+    return closest;
+};
+
 const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { sourceImage, isLoading, error, resultImage, drawingType, detailLevel, resolution } = state;
+    const [detectedAspectRatio, setDetectedAspectRatio] = useState<AspectRatio>('1:1');
     
     // Calculate cost based on resolution
     const getCostPerImage = () => {
@@ -51,6 +75,13 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
     };
 
     const handleFileSelect = (fileData: FileData | null) => {
+        if (fileData?.objectURL) {
+            const img = new Image();
+            img.onload = () => {
+                setDetectedAspectRatio(getClosestAspectRatio(img.width, img.height));
+            };
+            img.src = fileData.objectURL;
+        }
         onStateChange({
             sourceImage: fileData,
             resultImage: null,
@@ -95,7 +126,7 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
 
             // High Quality (Pro) Logic
             if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
-                const images = await geminiService.generateHighQualityImage(prompt, '1:1', resolution, sourceImage || undefined);
+                const images = await geminiService.generateHighQualityImage(prompt, detectedAspectRatio, resolution, sourceImage || undefined);
                 results = [{ imageUrl: images[0] }];
             }
             // Standard (Flash) Logic
