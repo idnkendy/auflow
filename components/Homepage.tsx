@@ -79,6 +79,10 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
         }
     };
 
+    const expirationDate = userStatus?.subscriptionEnd 
+        ? new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN') 
+        : 'Gói miễn phí';
+
     return (
         <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#302839] px-4 sm:px-10 md:px-20 lg:px-40 py-3 sticky top-0 bg-[#121212]/80 backdrop-blur-sm z-50">
             <div className="flex items-center gap-4 text-white cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
@@ -89,12 +93,12 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
             <div className="hidden md:flex flex-1 justify-end gap-8 items-center">
                 <div className="flex items-center gap-9">
                     <button onClick={() => handleNavClick(Tool.ArchitecturalRendering)} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Tính năng</button>
-                    {/* Pricing Link Hidden Temporarily */}
-                    {/* {!session && onNavigateToPricing && (
-                        <button onClick={onNavigateToPricing} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Bảng giá</button>
-                    )} */}
+                    
                     {session && (
-                        <button onClick={onGoToGallery} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Thư viện</button>
+                        <>
+                            <button onClick={onGoToGallery} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Thư viện của tôi</button>
+                            <button onClick={() => onOpenProfile?.()} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Giftcode</button>
+                        </>
                     )}
                     {!session && (
                         <button onClick={() => onAuthNavigate('login')} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Đăng nhập</button>
@@ -124,6 +128,9 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                                         {session.user.user_metadata?.full_name || 'Người dùng'}
                                     </p>
                                     <p className="text-xs text-gray-400 truncate">{session.user.email}</p>
+                                    {userStatus && (
+                                        <p className="text-xs text-[#DA70D6] mt-2">Hết hạn: {expirationDate}</p>
+                                    )}
                                 </div>
                                 <button onClick={() => { onOpenProfile?.(); setIsDropdownOpen(false); }} className="w-full text-left px-5 py-3 text-sm text-gray-300 hover:bg-[#302839] hover:text-white transition-colors">
                                     Hồ sơ cá nhân

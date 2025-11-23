@@ -39,9 +39,15 @@ const CoinIcon = () => (
     </svg>
 );
 
-const ClockIcon = () => (
+const CalendarIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+);
+
+const GiftIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
     </svg>
 );
 
@@ -79,6 +85,10 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  const expirationDate = userStatus?.subscriptionEnd 
+    ? new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN') 
+    : 'Gói miễn phí';
 
   return (
      <header className="bg-surface/80 dark:bg-[#121212]/80 backdrop-blur-md shadow-sm sticky top-0 z-40 transition-colors duration-300 px-4 sm:px-6 lg:px-8 border-b border-border-color dark:border-[#302839]">
@@ -149,7 +159,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                     <p className="text-sm font-bold text-text-primary dark:text-white mb-2">Tài khoản</p>
                                 )}
                                 
-                                {/* Credit Display - Internal */}
+                                {/* Credit & Expiration Display - Internal */}
                                 {userStatus && (
                                     <div className="space-y-2 mt-3">
                                         <div className="flex items-center justify-between text-sm text-purple-700 dark:text-[#DA70D6] font-semibold bg-purple-50 dark:bg-[#2a1a35] px-3 py-2 rounded-lg border border-purple-200 dark:border-[#DA70D6]/30">
@@ -159,18 +169,33 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                              </div>
                                              <span>{userStatus.credits}</span>
                                         </div>
+                                        <div className="flex items-center justify-between text-xs text-text-secondary dark:text-gray-400 px-1">
+                                             <div className="flex items-center gap-2">
+                                                 <CalendarIcon />
+                                                 <span>Hết hạn:</span>
+                                             </div>
+                                             <span className="font-medium">{expirationDate}</span>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                             
                             <div className="py-1">
                                 {onOpenProfile && (
-                                    <button 
-                                        onClick={() => { onOpenProfile(); setIsDropdownOpen(false); }}
-                                        className="w-full text-left px-4 py-2.5 text-sm text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#302839] hover:text-text-primary dark:hover:text-white flex items-center gap-3"
-                                    >
-                                        <ProfileIcon /> Hồ sơ cá nhân
-                                    </button>
+                                    <>
+                                        <button 
+                                            onClick={() => { onOpenProfile(); setIsDropdownOpen(false); }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#302839] hover:text-text-primary dark:hover:text-white flex items-center gap-3"
+                                        >
+                                            <GiftIcon /> Nhập Giftcode
+                                        </button>
+                                        <button 
+                                            onClick={() => { onOpenProfile(); setIsDropdownOpen(false); }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#302839] hover:text-text-primary dark:hover:text-white flex items-center gap-3"
+                                        >
+                                            <ProfileIcon /> Hồ sơ cá nhân
+                                        </button>
+                                    </>
                                 )}
 
                                 {onOpenGallery && (

@@ -44,6 +44,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
     const [giftCode, setGiftCode] = useState('');
     const [isRedeeming, setIsRedeeming] = useState(false);
     const [redeemStatus, setRedeemStatus] = useState<{type: 'success' | 'error', msg: string} | null>(null);
+    
+    // Additional User Info State
+    const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
 
     useEffect(() => {
         // Fallback to profile if plans is requested but hidden
@@ -55,6 +58,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
             loadHistory();
         }
     }, [activeTab]);
+    
+    useEffect(() => {
+        const loadUserStatus = async () => {
+            const status = await paymentService.getUserStatus(session.user.id);
+            setSubscriptionEnd(status.subscriptionEnd);
+        };
+        loadUserStatus();
+    }, [session.user.id]);
 
     const loadHistory = async () => {
         setIsLoadingHistory(true);
@@ -86,6 +97,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
                 msg: `Thành công! Bạn đã nhận được ${creditsAdded} credits.`
             });
             setGiftCode('');
+            // Update expiration date locally if giftcode extended it (though redeem usually adds credits, some logic might change dates)
+            const status = await paymentService.getUserStatus(session.user.id);
+            setSubscriptionEnd(status.subscriptionEnd);
+            
             if (onPurchaseSuccess) onPurchaseSuccess(); // Refresh credits in header
         } catch (err: any) {
             setRedeemStatus({
@@ -101,6 +116,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
     const userEmail = session.user.email;
     const userName = session.user.user_metadata?.full_name || "Người dùng Auflow";
     const joinDate = new Date(session.user.created_at).toLocaleDateString('vi-VN');
+    const expirationDateString = subscriptionEnd ? new Date(subscriptionEnd).toLocaleDateString('vi-VN') : 'Vĩnh viễn';
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-full max-h-[calc(100vh-100px)]">
@@ -167,10 +183,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
                                     <input type="text" value={joinDate} disabled className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-300 opacity-70" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Gói hiện tại</label>
-                                    <div className="w-full bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3 text-green-800 dark:text-green-300 font-semibold">
-                                        Miễn phí (Free Tier)
-                                    </div>
+                                    <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Ngày hết hạn</label>
+                                    <input type="text" value={expirationDateString} disabled className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-gray-300 opacity-70 font-semibold text-purple-600 dark:text-purple-400" />
                                 </div>
                             </div>
                         </div>
