@@ -288,7 +288,7 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                 
                 {/* --- INPUTS --- */}
                 <div className="space-y-6 bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                         {/* Image Uploads (Left Column) */}
                         <div className="space-y-6">
                             <div>

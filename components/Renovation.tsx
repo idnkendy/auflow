@@ -200,7 +200,7 @@ const Renovation: React.FC<RenovationProps> = ({ state, onStateChange, userCredi
                 <p className="text-text-secondary dark:text-gray-300 mb-6">Tải lên ảnh chụp thực tế của một công trình hoặc không gian nội thất. AI sẽ giúp bạn hình dung phương án cải tạo mới một cách trực quan.</p>
                 
                 <div className="bg-main-bg/50 dark:bg-dark-bg/50 border border-border-color dark:border-gray-700 rounded-xl p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Tải Lên Ảnh Thực Tế</label>

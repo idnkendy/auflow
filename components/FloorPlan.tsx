@@ -184,7 +184,7 @@ const FloorPlan: React.FC<FloorPlanProps> = ({ state, onStateChange, userCredits
                 <p className="text-text-secondary dark:text-gray-300 mb-6">Tải lên bản vẽ mặt bằng 2D, AI sẽ biến nó thành phối cảnh 3D cho nội thất hoặc kiến trúc theo yêu cầu của bạn.</p>
                 
                 <div className="bg-main-bg/50 dark:bg-dark-bg/50 border border-border-color dark:border-gray-700 rounded-xl p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                         <div>
                             <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Tải Lên Mặt Bằng 2D</label>
                             <ImageUpload onFileSelect={handleFileSelect} previewUrl={sourceImage?.objectURL} />

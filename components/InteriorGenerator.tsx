@@ -340,7 +340,7 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
                 
                 {/* --- INPUTS --- */}
                 <div className="space-y-6 bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                         {/* Image Uploads (Left Column) */}
                         <div className="space-y-6">
                             <div>
@@ -457,7 +457,7 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
                                     title="Chuyển ảnh này tới Đồng Bộ View để xử lý tiếp"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 01-2 2H-2a2 2 0 01-2-2v-2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 01-2 2H-2a2 2 0 01-2-2v-2z" />
                                     </svg>
                                     Đồng bộ
                                 </button>

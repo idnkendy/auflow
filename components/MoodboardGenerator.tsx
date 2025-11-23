@@ -197,7 +197,7 @@ const MoodboardGenerator: React.FC<MoodboardGeneratorProps> = ({ state, onStateC
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">
                                 {mode === 'moodboardToScene' ? '1. Tải Lên Ảnh Moodboard' : '1. Tải Lên Ảnh Không Gian Hoàn Thiện'}
