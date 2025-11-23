@@ -96,7 +96,7 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                     
                     {session && (
                         <>
-                            <button onClick={onGoToGallery} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Thư viện của tôi</button>
+                            <button onClick={onGoToGallery} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Thư viện</button>
                             <button onClick={() => onOpenProfile?.()} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Giftcode</button>
                         </>
                     )}

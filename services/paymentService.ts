@@ -1,3 +1,4 @@
+
 import { PricingPlan, Transaction, UserStatus, UsageLog } from "../types";
 import { supabase } from "./supabaseClient";
 
@@ -86,18 +87,31 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
     );
     const currentCredits = currentProfile?.credits || 0;
     
-    // Calculate new subscription end date
+    // Calculate new subscription end date (Max Date Logic)
     const now = new Date();
-    let newSubscriptionEnd = currentProfile?.subscription_end ? new Date(currentProfile.subscription_end) : now;
-    
-    // If current subscription is expired or invalid, start from now
-    if (newSubscriptionEnd < now) {
-        newSubscriptionEnd = now;
-    }
-
-    // Add plan duration (default to 1 month if not specified)
     const durationMonths = plan.durationMonths || 1;
-    newSubscriptionEnd.setMonth(newSubscriptionEnd.getMonth() + durationMonths);
+    
+    // Calculate new expiry date starting from today
+    const potentialNewExpiry = new Date(now);
+    potentialNewExpiry.setMonth(potentialNewExpiry.getMonth() + durationMonths);
+
+    // Get current expiry date from profile
+    const currentExpiry = currentProfile?.subscription_end ? new Date(currentProfile.subscription_end) : null;
+
+    let newSubscriptionEnd: Date;
+
+    // If no current subscription or it's already expired/in the past
+    if (!currentExpiry || currentExpiry < now) {
+        newSubscriptionEnd = potentialNewExpiry;
+    } else {
+        // Compare dates and take the furthest one (MAX logic)
+        // Example: Current expires in 90 days (Ultra). Buy 30 days (Starter). Result: Keep 90 days.
+        if (potentialNewExpiry > currentExpiry) {
+            newSubscriptionEnd = potentialNewExpiry;
+        } else {
+            newSubscriptionEnd = currentExpiry;
+        }
+    }
 
     const { error: updateError } = await withRetry<{ error: any }>(() => supabase.from('profiles').upsert({
         id: userId,
@@ -381,22 +395,58 @@ export const redeemGiftCode = async (userId: string, code: string): Promise<numb
         throw new Error('Lỗi hệ thống khi áp dụng mã.');
     }
 
-    // 5. Add Credits to Profile
+    // 5. Add Credits & Update Time to Profile
     const { data: profile } = await supabase
         .from('profiles')
-        .select('credits')
+        .select('credits, subscription_end')
         .eq('id', userId)
         .single();
     
     const currentCredits = profile?.credits || 0;
     const newCredits = currentCredits + giftCode.credits;
 
+    // Handle time extension if giftcode has duration (assuming column exists or logic applies)
+    // Note: Assuming giftCode might have a duration field in future, or using a default logic. 
+    // If the DB table doesn't have 'duration_days', this part might need adjustment based on real schema.
+    // For now, we only update credits as per original code, BUT we apply the requested logic conceptually if we had duration.
+    // Since we can't modify DB schema, we assume giftcodes are credit-only UNLESS 'duration_days' exists in the returned object.
+    
+    let newSubscriptionEnd = profile?.subscription_end;
+    
+    // Safe check if duration_days exists on the object (even if TS doesn't know it yet)
+    const durationDays = (giftCode as any).duration_days;
+    
+    if (durationDays && durationDays > 0) {
+        const now = new Date();
+        const potentialNewExpiry = new Date(now);
+        potentialNewExpiry.setDate(potentialNewExpiry.getDate() + durationDays);
+        
+        const currentExpiry = profile?.subscription_end ? new Date(profile.subscription_end) : null;
+        
+        if (!currentExpiry || currentExpiry < now) {
+            newSubscriptionEnd = potentialNewExpiry.toISOString();
+        } else {
+            if (potentialNewExpiry > currentExpiry) {
+                newSubscriptionEnd = potentialNewExpiry.toISOString();
+            } else {
+                // Keep current expiry if it's further away
+                newSubscriptionEnd = currentExpiry.toISOString();
+            }
+        }
+    }
+
+    const updatePayload: any = { 
+        credits: newCredits,
+        updated_at: new Date().toISOString()
+    };
+    
+    if (newSubscriptionEnd) {
+        updatePayload.subscription_end = newSubscriptionEnd;
+    }
+
     const { error: updateError } = await supabase
         .from('profiles')
-        .update({ 
-            credits: newCredits,
-            updated_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', userId);
 
     if (updateError) {
