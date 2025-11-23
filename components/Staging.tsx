@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileData, Tool } from '../types';
+import { FileData, Tool, ImageResolution } from '../types';
 import { StagingState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -11,6 +11,7 @@ import ImageComparator from './ImageComparator';
 import NumberOfImagesSelector from './common/NumberOfImagesSelector';
 import ResultGrid from './common/ResultGrid';
 import ImagePreviewModal from './common/ImagePreviewModal';
+import ResolutionSelector from './common/ResolutionSelector';
 
 const SparklesIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -26,7 +27,7 @@ interface StagingProps {
 }
 
 const Staging: React.FC<StagingProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { prompt, sceneImage, objectImages, isLoading, error, resultImages, numberOfImages } = state;
+    const { prompt, sceneImage, objectImages, isLoading, error, resultImages, numberOfImages, resolution } = state;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
 
@@ -47,7 +48,22 @@ const Staging: React.FC<StagingProps> = ({ state, onStateChange, userCredits = 0
         }
     };
 
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -72,11 +88,33 @@ const Staging: React.FC<StagingProps> = ({ state, onStateChange, userCredits = 0
 
         try {
              if (onDeductCredits) {
-                await onDeductCredits(cost, `AI Staging (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `AI Staging (${numberOfImages} ảnh) - ${resolution}`);
             }
 
-            const fullPrompt = `Integrate the objects from the following images into the main scene image. Follow these instructions for placement and style: ${prompt}. Ensure the objects are realistically scaled, lit, and shadowed to match the environment of the main scene.`;
-            const results = await geminiService.generateStagingImage(fullPrompt, sceneImage, objectImages, numberOfImages);
+            let results: { imageUrl: string }[] = [];
+            const fullPrompt = `Integrate the objects from the provided reference images into the main scene image. Follow these instructions for placement and style: ${prompt}. Ensure the objects are realistically scaled, lit, and shadowed to match the environment of the main scene.`;
+
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    // Pass objectImages as referenceImages to generateHighQualityImage
+                    const images = await geminiService.generateHighQualityImage(
+                        fullPrompt, 
+                        '1:1', // Or infer from source
+                        resolution, 
+                        sceneImage, 
+                        undefined, 
+                        objectImages
+                    );
+                    return { imageUrl: images[0] };
+                });
+                results = await Promise.all(promises);
+            }
+            // Standard (Flash) Logic
+            else {
+                results = await geminiService.generateStagingImage(fullPrompt, sceneImage, objectImages, numberOfImages);
+            }
+
             const imageUrls = results.map(r => r.imageUrl);
             onStateChange({ resultImages: imageUrls });
 
@@ -151,6 +189,8 @@ const Staging: React.FC<StagingProps> = ({ state, onStateChange, userCredits = 0
                         </button>
                     </div>
                      <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                     
+                     <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
                     
                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-1 border border-gray-200 dark:border-gray-700">
                         <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">

@@ -1,4 +1,3 @@
-
 import { PricingPlan, Transaction, UserStatus, UsageLog } from "../types";
 import { supabase } from "./supabaseClient";
 
@@ -78,12 +77,32 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
 
     if (txError) throw new Error(`Lỗi lưu giao dịch: ${txError.message}`);
 
-    const { data: currentProfile } = await withRetry<{ data: { credits: number } | null }>(() => supabase.from('profiles').select('credits').eq('id', userId).maybeSingle());
+    // Fetch current profile to get existing credits and subscription end date
+    const { data: currentProfile } = await withRetry<{ data: { credits: number, subscription_end?: string } | null }>(() => supabase
+        .from('profiles')
+        .select('credits, subscription_end')
+        .eq('id', userId)
+        .maybeSingle()
+    );
     const currentCredits = currentProfile?.credits || 0;
     
+    // Calculate new subscription end date
+    const now = new Date();
+    let newSubscriptionEnd = currentProfile?.subscription_end ? new Date(currentProfile.subscription_end) : now;
+    
+    // If current subscription is expired or invalid, start from now
+    if (newSubscriptionEnd < now) {
+        newSubscriptionEnd = now;
+    }
+
+    // Add plan duration (default to 1 month if not specified)
+    const durationMonths = plan.durationMonths || 1;
+    newSubscriptionEnd.setMonth(newSubscriptionEnd.getMonth() + durationMonths);
+
     const { error: updateError } = await withRetry<{ error: any }>(() => supabase.from('profiles').upsert({
         id: userId,
         credits: currentCredits + (plan.credits || 0),
+        subscription_end: newSubscriptionEnd.toISOString(),
         updated_at: new Date().toISOString()
     }, { onConflict: 'id' }));
 
@@ -91,7 +110,7 @@ export const processPayment = async (userId: string, plan: PricingPlan, paymentM
 
     return {
         success: true,
-        message: `Thanh toán thành công! Đã cộng ${plan.credits} credits.`,
+        message: `Thanh toán thành công! Đã cộng ${plan.credits} credits. Hạn sử dụng đến ${newSubscriptionEnd.toLocaleDateString('vi-VN')}.`,
         transactionId: transactionCode
     };
 };
@@ -120,19 +139,54 @@ export const getUserStatus = async (userId: string): Promise<UserStatus> => {
             .maybeSingle());
 
         if (profile) {
+            const now = new Date();
+            const subEnd = profile.subscription_end ? new Date(profile.subscription_end) : null;
+            // If subscription_end is null, assume expired for existing users unless we decide otherwise.
+            // Assuming legacy users without date are expired or need migration.
+            const isExpired = subEnd ? subEnd < now : true;
+
+            // If expired and has credits, wipe them
+            if (isExpired && profile.credits > 0) {
+                console.log(`[PaymentService] Subscription expired for ${userId}. Resetting credits from ${profile.credits} to 0.`);
+                
+                // Update DB
+                await supabase.from('profiles').update({ 
+                    credits: 0,
+                    updated_at: new Date().toISOString()
+                }).eq('id', userId);
+
+                return {
+                    credits: 0,
+                    subscriptionEnd: profile.subscription_end,
+                    isExpired: true
+                };
+            }
+
             return {
                 credits: profile.credits,
                 subscriptionEnd: profile.subscription_end,
-                isExpired: profile.subscription_end ? new Date(profile.subscription_end) < new Date() : true
+                isExpired: isExpired
             };
         } else {
-            // Init profile for new user with bonus credits
+            // NEW USER INITIALIZATION
+            // Give 60 credits and 1 month free trial
+            const now = new Date();
+            const oneMonthLater = new Date(now.setMonth(now.getMonth() + 1));
+            const initialCredits = 60;
+
             const { error } = await withRetry<{ error: any }>(() => supabase.from('profiles').upsert({
                 id: userId,
-                credits: 50, 
+                credits: initialCredits,
+                subscription_end: oneMonthLater.toISOString()
             }, { onConflict: 'id' }));
             
-            if (!error) return { credits: 50, subscriptionEnd: null, isExpired: true };
+            if (!error) {
+                return { 
+                    credits: initialCredits, 
+                    subscriptionEnd: oneMonthLater.toISOString(), 
+                    isExpired: false 
+                };
+            }
         }
     } catch (e) {
         console.warn("Error getting user status:", e);
@@ -148,7 +202,7 @@ export const deductCredits = async (userId: string, amount: number, description:
             console.log("Bước 1: Kiểm tra số dư...");
             const { data: profile, error: fetchError } = await supabase
                 .from('profiles')
-                .select('credits')
+                .select('credits, subscription_end')
                 .eq('id', userId)
                 .single();
                 
@@ -161,6 +215,13 @@ export const deductCredits = async (userId: string, amount: number, description:
                      throw new Error("Không tìm thấy thông tin tài khoản.");
                  }
                  throw new Error(`Lỗi kiểm tra số dư: ${msg}`);
+            }
+
+            // Validate Expiration
+            const now = new Date();
+            const subEnd = profile.subscription_end ? new Date(profile.subscription_end) : null;
+            if (!subEnd || subEnd < now) {
+                 throw new Error("Gói cước của bạn đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng số dư.");
             }
 
             const currentCredits = profile?.credits ?? 0;
@@ -214,7 +275,6 @@ export const deductCredits = async (userId: string, amount: number, description:
         let uiMessage = "Lỗi không xác định.";
         
         // --- ROBUST ERROR PARSING LOGIC ---
-        // Try to handle the specific JSON string format: {"message": "...", "details": "..."}
         let errorObj = error;
         if (typeof error === 'string') {
             try {
@@ -229,7 +289,6 @@ export const deductCredits = async (userId: string, amount: number, description:
         }
 
         if (typeof errorObj === 'object' && errorObj !== null) {
-            // Prioritize 'details' if it exists and looks like an error message
             if (errorObj.details && typeof errorObj.details === 'string') {
                  uiMessage = errorObj.details;
             } else if (errorObj.message) {
@@ -242,11 +301,11 @@ export const deductCredits = async (userId: string, amount: number, description:
         // Map technical messages to friendly UI messages
         if (uiMessage.includes('Failed to fetch') || uiMessage.includes('NetworkError') || uiMessage.includes('fetch')) {
             throw new Error("Lỗi kết nối (Failed to fetch). Có thể Database đang khởi động lại, vui lòng thử lại sau 10-20 giây.");
-        } else if (uiMessage.includes('Không đủ Credits')) {
+        } else if (uiMessage.includes('Không đủ Credits') || uiMessage.includes('hết hạn')) {
             throw error; // Pass through logic errors
         } else {
-            // If it's a clean message, use it, otherwise fallback
-            throw new Error(uiMessage.length < 200 ? uiMessage : "Lỗi hệ thống. Vui lòng thử lại sau.");
+            console.error("Original Error:", uiMessage); // Keep for dev
+            throw new Error("Hệ thống đang bận hoặc gặp sự cố tạm thời. Vui lòng thử lại sau."); 
         }
     } finally {
         console.groupEnd();
@@ -307,7 +366,7 @@ export const redeemGiftCode = async (userId: string, code: string): Promise<numb
         throw new Error('Bạn đã sử dụng mã quà tặng này rồi.');
     }
 
-    // 4. Record Usage (Try to insert first to handle concurrency via Unique Constraint)
+    // 4. Record Usage
     const { error: usageError } = await supabase
         .from('gift_code_usages')
         .insert({
@@ -316,7 +375,6 @@ export const redeemGiftCode = async (userId: string, code: string): Promise<numb
         });
 
     if (usageError) {
-        // If duplicate key error, user already used it (race condition catch)
         if (usageError.code === '23505') {
             throw new Error('Bạn đã sử dụng mã quà tặng này rồi.');
         }
@@ -342,20 +400,18 @@ export const redeemGiftCode = async (userId: string, code: string): Promise<numb
         .eq('id', userId);
 
     if (updateError) {
-        // Critical error: Usage recorded but credits not added. 
-        // Ideally should use SQL Transaction (RPC) for atomic operation.
         console.error("CRITICAL: Failed to add credits after recording usage", updateError);
         throw new Error('Lỗi cập nhật số dư. Vui lòng liên hệ hỗ trợ.');
     }
 
-    // 6. Log Transaction for history
+    // 6. Log Transaction
     await supabase.from('transactions').insert({
         user_id: userId,
         plan_name: `Giftcode: ${cleanCode}`,
         plan_id: 'gift_redemption',
         amount: 0,
         currency: 'VND',
-        type: 'credit', // or 'gift'
+        type: 'credit',
         credits_added: giftCode.credits,
         status: 'completed',
         payment_method: 'giftcode',

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileData, Tool } from '../types';
+import { FileData, Tool, ImageResolution } from '../types';
 import { ImageEditorState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -12,6 +12,7 @@ import MaskingModal from './MaskingModal';
 import ImageComparator from './ImageComparator';
 import ImagePreviewModal from './common/ImagePreviewModal';
 import MultiImageUpload from './common/MultiImageUpload';
+import ResolutionSelector from './common/ResolutionSelector';
 
 const SparklesIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -27,7 +28,7 @@ interface ImageEditorProps {
 }
 
 const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { prompt, sourceImage, maskImage, referenceImages, isLoading, error, resultImages, numberOfImages } = state;
+    const { prompt, sourceImage, maskImage, referenceImages, isLoading, error, resultImages, numberOfImages, resolution } = state;
     
     const [isMaskingModalOpen, setIsMaskingModalOpen] = useState<boolean>(false);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -63,8 +64,22 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange, userCre
         }
     };
 
-    // Update Cost: 5 credits per image
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -85,21 +100,50 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange, userCre
 
         try {
             if (onDeductCredits) {
-                await onDeductCredits(cost, `Chỉnh sửa ảnh (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `Chỉnh sửa ảnh (${numberOfImages} ảnh) - ${resolution}`);
             }
 
-            let results;
-            if (referenceImages && referenceImages.length > 0) {
+            let results: { imageUrl: string }[] = [];
+
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                let finalPrompt = prompt;
                 if (maskImage) {
-                    results = await geminiService.editImageWithMaskAndMultipleReferences(prompt, sourceImage, maskImage, referenceImages, numberOfImages);
-                } else {
-                    results = await geminiService.editImageWithMultipleReferences(prompt, sourceImage, referenceImages, numberOfImages);
+                    finalPrompt += " Note: The user provided a mask for specific edits, but in High Quality mode, please perform the requested edit while maintaining the overall composition and integrity of the image as best as possible.";
                 }
-            } else if (maskImage) {
-                results = await geminiService.editImageWithMask(prompt, sourceImage, maskImage, numberOfImages);
-            } else {
-                results = await geminiService.editImage(prompt, sourceImage, numberOfImages);
+                
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    // generateHighQualityImage accepts sourceImage and referenceImages
+                    const images = await geminiService.generateHighQualityImage(
+                        finalPrompt, 
+                        '1:1', // Aspect ratio is less strict for edit, but we pass 1:1 or reuse logic. 
+                               // Actually generateHighQualityImage uses content.parts so aspect ratio config might resize output.
+                               // Ideally we want to maintain source aspect ratio. 
+                               // For now, passing '1:1' as placeholder or we could detect from image if possible.
+                        resolution, 
+                        sourceImage, 
+                        undefined, 
+                        referenceImages
+                    );
+                    return { imageUrl: images[0] };
+                });
+                results = await Promise.all(promises);
             }
+            // Standard (Flash) Logic
+            else {
+                if (referenceImages && referenceImages.length > 0) {
+                    if (maskImage) {
+                        results = await geminiService.editImageWithMaskAndMultipleReferences(prompt, sourceImage, maskImage, referenceImages, numberOfImages);
+                    } else {
+                        results = await geminiService.editImageWithMultipleReferences(prompt, sourceImage, referenceImages, numberOfImages);
+                    }
+                } else if (maskImage) {
+                    results = await geminiService.editImageWithMask(prompt, sourceImage, maskImage, numberOfImages);
+                } else {
+                    results = await geminiService.editImage(prompt, sourceImage, numberOfImages);
+                }
+            }
+
             const imageUrls = results.map(r => r.imageUrl);
             onStateChange({ resultImages: imageUrls });
 
@@ -164,6 +208,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange, userCre
                                     <button
                                         onClick={() => setIsMaskingModalOpen(true)}
                                         className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                                        disabled={resolution !== 'Standard'}
+                                        title={resolution !== 'Standard' ? "Chế độ chất lượng cao sẽ tự động xử lý toàn bộ ảnh" : "Vẽ vùng chọn"}
                                     >
                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>
                                         {maskImage ? 'Sửa vùng chọn' : 'Vẽ vùng chọn (Mask)'}
@@ -179,6 +225,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange, userCre
                                     )}
                                 </div>
                                 {maskImage && <p className="text-xs text-green-500 dark:text-green-400 mt-2">Đã áp dụng vùng chọn. AI sẽ chỉ chỉnh sửa trong vùng này.</p>}
+                                {resolution !== 'Standard' && <p className="text-xs text-yellow-500 mt-1">Lưu ý: Chế độ 2K/4K sẽ xử lý toàn bộ ảnh để đảm bảo chất lượng đồng nhất.</p>}
                             </div>
                         )}
                     </div>
@@ -214,6 +261,10 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ state, onStateChange, userCre
                      
                      <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
                          <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                     </div>
+
+                     <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700">
+                         <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
                      </div>
                     
                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-1 border border-gray-200 dark:border-gray-700">

@@ -297,7 +297,8 @@ export const generateHighQualityImage = async (
     aspectRatio: AspectRatio, 
     resolution: ImageResolution,
     sourceImage?: FileData,
-    jobId?: string
+    jobId?: string,
+    referenceImages?: FileData[]
 ): Promise<string[]> => {
     
     console.log("[GeminiService] Generating High Quality Image (Nano Banana Pro / Gemini 3.0)");
@@ -312,11 +313,26 @@ export const generateHighQualityImage = async (
                     data: sourceImage.base64
                 }
             });
-            // Note: For 3.0 Pro Image, verify if text should be appended or in a separate part structure.
-            // This structure (Image Part + Text Part) works for multimodal inputs.
-            contents.parts.push({ text: `${prompt}. Maintain composition from image.` });
+        }
+
+        if (referenceImages && referenceImages.length > 0) {
+            referenceImages.forEach(img => {
+                contents.parts.push({
+                    inlineData: {
+                        mimeType: img.mimeType,
+                        data: img.base64
+                    }
+                });
+            });
+        }
+
+        // Text prompt should ideally be last or mixed, checking guidelines.
+        // For multimodal, order matters less but text is usually last.
+        // We append text instructions.
+        if (sourceImage || (referenceImages && referenceImages.length > 0)) {
+             contents.parts.push({ text: `${prompt}. Maintain composition/style from provided images.` });
         } else {
-            contents.parts.push({ text: prompt });
+             contents.parts.push({ text: prompt });
         }
 
         // Map resolution to API accepted string (1K, 2K, 4K)

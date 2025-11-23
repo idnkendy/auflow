@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
 import * as jobService from '../services/jobService';
@@ -90,6 +89,34 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
+    const [queuePosition, setQueuePosition] = useState<number | null>(null);
+    const [activeJobId, setActiveJobId] = useState<string | null>(null);
+
+    // Polling for queue position
+    useEffect(() => {
+        let interval: ReturnType<typeof setInterval>;
+        if (isLoading && activeJobId) {
+            const checkQueue = async () => {
+                const pos = await jobService.getQueuePosition(activeJobId);
+                if (pos > 1) {
+                    setQueuePosition(pos);
+                    setStatusMessage(`Đang trong hàng đợi (Vị trí: ${pos})...`);
+                } else {
+                    setQueuePosition(null);
+                    setStatusMessage('Đang xử lý ảnh...');
+                }
+            };
+            
+            checkQueue(); // Initial check
+            interval = setInterval(checkQueue, 5000); // Check every 5s
+        } else {
+            setQueuePosition(null);
+        }
+        
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [isLoading, activeJobId]);
 
     const updatePrompt = useCallback((type: 'style' | 'context' | 'lighting' | 'weather' | 'buildingType', newValue: string, oldValue: string) => {
         const getPromptPart = (partType: string, value: string): string => {
@@ -243,7 +270,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
         }
         
         onStateChange({ isLoading: true, error: null, resultImages: [], upscaledImage: null });
-        setStatusMessage(null);
+        setStatusMessage('Đang khởi tạo...');
         
         let jobId: string | null = null;
         let logId: string | null = null;
@@ -264,6 +291,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                     cost: cost,
                     usage_log_id: logId
                 });
+                setActiveJobId(jobId); // Set for queue polling
             }
 
             // 3. Smart Retry Logic
@@ -322,20 +350,35 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
             });
 
         } catch (err: any) {
-            const errorMessage = err.message || 'Đã xảy ra lỗi không mong muốn.';
-            onStateChange({ error: errorMessage });
+            console.error("Generation Error:", err);
+            
+            // GENERIC ERROR MESSAGE FOR USERS
+            let userErrorMessage = 'Đã xảy ra lỗi trong quá trình xử lý. Vui lòng thử lại sau.';
+            
+            // Allow specific known errors to pass through if safe
+            if (err.message.includes('không đủ credits') || err.message.includes('Credits')) {
+                userErrorMessage = err.message;
+            } else if (err.message.includes('Hệ thống quá tải')) {
+                userErrorMessage = err.message;
+            } else if (err.message.includes('Lỗi kết nối')) {
+                userErrorMessage = err.message;
+            }
+
+            onStateChange({ error: userErrorMessage });
             
             if (jobId) {
-                await jobService.updateJobStatus(jobId, 'failed', undefined, errorMessage);
+                await jobService.updateJobStatus(jobId, 'failed', undefined, err.message);
             }
              const { data: { user } } = await supabase.auth.getUser();
              if (user) {
-                await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi render kiến trúc (${errorMessage})`);
+                await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi render kiến trúc (${err.message})`);
              }
 
         } finally {
             onStateChange({ isLoading: false });
             setStatusMessage(null);
+            setActiveJobId(null);
+            setQueuePosition(null);
         }
     };
 
@@ -555,7 +598,14 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                     {isLoading && (
                         <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
                             <div className="w-16 h-16 border-4 border-accent-200 border-t-accent-600 rounded-full animate-spin mb-4"></div>
-                            <p className="text-accent-600 dark:text-accent-400 font-medium animate-pulse">AI đang vẽ...</p>
+                            <p className="text-accent-600 dark:text-accent-400 font-medium animate-pulse">
+                                {statusMessage || 'AI đang vẽ...'}
+                            </p>
+                            {queuePosition && queuePosition > 1 && (
+                                <p className="text-sm text-gray-500 mt-2 font-medium">
+                                    Vị trí trong hàng đợi: <span className="font-bold">{queuePosition}</span>
+                                </p>
+                            )}
                         </div>
                     )}
 

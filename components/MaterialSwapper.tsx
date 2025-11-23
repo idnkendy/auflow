@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileData, Tool } from '../types';
+import { FileData, Tool, ImageResolution } from '../types';
 import { MaterialSwapperState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -10,6 +10,7 @@ import ImageComparator from './ImageComparator';
 import NumberOfImagesSelector from './common/NumberOfImagesSelector';
 import ResultGrid from './common/ResultGrid';
 import ImagePreviewModal from './common/ImagePreviewModal';
+import ResolutionSelector from './common/ResolutionSelector';
 
 const SparklesIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -25,7 +26,7 @@ interface MaterialSwapperProps {
 }
 
 const MaterialSwapper: React.FC<MaterialSwapperProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { prompt, sceneImage, materialImage, isLoading, error, resultImages, numberOfImages } = state;
+    const { prompt, sceneImage, materialImage, isLoading, error, resultImages, numberOfImages, resolution } = state;
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
 
@@ -46,8 +47,22 @@ const MaterialSwapper: React.FC<MaterialSwapperProps> = ({ state, onStateChange,
         }
     };
 
-    // Update Cost: 5 credits per image
-    const cost = numberOfImages * 5;
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = numberOfImages * getCostPerImage();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleGenerate = async () => {
         if (onDeductCredits && userCredits < cost) {
@@ -72,10 +87,32 @@ const MaterialSwapper: React.FC<MaterialSwapperProps> = ({ state, onStateChange,
 
         try {
              if (onDeductCredits) {
-                await onDeductCredits(cost, `Thay vật liệu (${numberOfImages} ảnh)`);
+                await onDeductCredits(cost, `Thay vật liệu (${numberOfImages} ảnh) - ${resolution}`);
             }
 
-            const results = await geminiService.editImageWithReference(prompt, sceneImage, materialImage, numberOfImages);
+            let results: { imageUrl: string }[] = [];
+
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                const promises = Array.from({ length: numberOfImages }).map(async () => {
+                    // Use materialImage as referenceImage
+                    const images = await geminiService.generateHighQualityImage(
+                        prompt, 
+                        '1:1', // Maintain default aspect ratio
+                        resolution, 
+                        sceneImage, 
+                        undefined, 
+                        [materialImage]
+                    );
+                    return { imageUrl: images[0] };
+                });
+                results = await Promise.all(promises);
+            }
+            // Standard (Flash) Logic
+            else {
+                results = await geminiService.editImageWithReference(prompt, sceneImage, materialImage, numberOfImages);
+            }
+
             const imageUrls = results.map(r => r.imageUrl);
             onStateChange({ resultImages: imageUrls });
 
@@ -150,6 +187,8 @@ const MaterialSwapper: React.FC<MaterialSwapperProps> = ({ state, onStateChange,
                         </button>
                     </div>
                      <NumberOfImagesSelector value={numberOfImages} onChange={(val) => onStateChange({ numberOfImages: val })} disabled={isLoading} />
+                     
+                     <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
                     
                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-1 border border-gray-200 dark:border-gray-700">
                         <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-gray-300">

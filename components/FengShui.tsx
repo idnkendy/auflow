@@ -1,13 +1,14 @@
 
 import React from 'react';
 import { FengShuiState } from '../state/toolState';
-import { FileData, Tool } from '../types';
+import { FileData, Tool, ImageResolution } from '../types';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
 import ImageUpload from './common/ImageUpload';
 import Spinner from './Spinner';
 import ImageComparator from './ImageComparator';
 import OptionSelector from './common/OptionSelector';
+import ResolutionSelector from './common/ResolutionSelector';
 
 interface FengShuiProps {
     state: FengShuiState;
@@ -56,23 +57,6 @@ const houseDirections = [
     { value: 'tay-bac-can', label: 'Tây Bắc (Càn)' },
 ];
 
-const days = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
-const months = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
-const zodiacHours = [
-    { value: 'ty', label: 'Tý (23h-1h)' },
-    { value: 'suu', label: 'Sửu (1h-3h)' },
-    { value: 'dan', label: 'Dần (3h-5h)' },
-    { value: 'mao', label: 'Mão (5h-7h)' },
-    { value: 'thin', label: 'Thìn (7h-9h)' },
-    { value: 'ti', label: 'Tỵ (9h-11h)' },
-    { value: 'ngo', label: 'Ngọ (11h-13h)' },
-    { value: 'mui', label: 'Mùi (13h-15h)' },
-    { value: 'than', label: 'Thân (15h-17h)' },
-    { value: 'dau', label: 'Dậu (17h-19h)' },
-    { value: 'tuat', label: 'Tuất (19h-21h)' },
-    { value: 'hoi', label: 'Hợi (21h-23h)' },
-];
-
 const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { 
         name, birthDay, birthMonth, birthYear, gender, analysisType, 
@@ -80,11 +64,26 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
         deathDay, deathMonth, deathYear, deathHour, 
         spouseName, spouseBirthYear, eldestChildName, eldestChildBirthYear,
         graveDirection, terrainDescription, latitude, longitude,
-        kitchenDirection, bedroomDirection, eventType, vanKhanType
+        kitchenDirection, bedroomDirection, eventType, vanKhanType, resolution
     } = state;
 
-    // Determine cost based on operation type
-    const cost = 5;
+    // Calculate cost based on resolution if image generation is involved
+    const getCost = () => {
+        if (!floorPlanImage) return 5; // Text only analysis
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = getCost();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleGetLocation = () => {
         if (navigator.geolocation) {
@@ -120,8 +119,29 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
         try {
             // Deduct credits first
             if (onDeductCredits) {
-                await onDeductCredits(cost, `Phân tích Phong thủy: ${analysisType}`);
+                await onDeductCredits(cost, `Phân tích Phong thủy: ${analysisType} - ${resolution || 'Standard'}`);
             }
+
+            // Helper to process image (Standard or High Quality)
+            const processImage = async (p: string) => {
+                if (!floorPlanImage) return;
+                
+                let results: any[] = [];
+                
+                // High Quality Logic (for drawing detailed diagrams)
+                if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                    const images = await geminiService.generateHighQualityImage(p, '1:1', resolution, floorPlanImage);
+                    results = [{ imageUrl: images[0], text: '' }]; // Note: High Quality doesn't return text in same response usually, might need separate call for text
+                    
+                    // Separate text generation for analysis
+                    const analysis = await geminiService.generateText(p + "\n\nCung cấp bài phân tích chi tiết bằng văn bản.");
+                    results[0].text = analysis;
+                } else {
+                    results = await geminiService.editImage(p, floorPlanImage, 1);
+                }
+                
+                return results;
+            };
 
             // --- THAN SAT ---
             if (analysisType === 'than-sat') {
@@ -140,7 +160,7 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                     3. **Tạo một hình ảnh mới** từ ảnh gốc, trong đó **khoanh vùng và chú thích rõ ràng vị trí của sát khí**.
                     4. Cung cấp một **bài phân tích văn bản chi tiết** giải thích các đánh dấu trên hình và đưa ra các **phương pháp hóa giải cụ thể, khả thi** (ví dụ: dùng gương bát quái, trồng cây, treo rèm, v.v.).`;
 
-                    const result = await geminiService.editImage(prompt, floorPlanImage, 1);
+                    const result = await processImage(prompt);
                     if (result && result.length > 0) {
                         onStateChange({ resultImage: result[0].imageUrl, analysisText: result[0].text });
                     }
@@ -168,7 +188,7 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                 1. Tạo một hình ảnh mới từ mặt bằng gốc. Trong hình ảnh mới, hãy **vẽ sơ đồ phi tinh bàn** của ngôi nhà. Sơ đồ phải hiển thị cửu cung, sơn tinh, hướng tinh, và vận tinh một cách rõ ràng và trực quan trên mặt bằng.
                 2. Cung cấp một bài phân tích chi tiết bằng văn bản tiếng Việt, giải thích ý nghĩa của các sao tại mỗi cung và ảnh hưởng của chúng (cát/hung), kèm theo các gợi ý hóa giải hoặc kích hoạt.`;
         
-                const result = await geminiService.editImage(prompt, floorPlanImage, 1);
+                const result = await processImage(prompt);
                 if (result && result.length > 0) {
                     onStateChange({ resultImage: result[0].imageUrl, analysisText: result[0].text });
                 }
@@ -221,8 +241,10 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                 
                 if (floorPlanImage) {
                     prompt += `\n- Hình ảnh công trình/khu đất được cung cấp.\n\nYêu cầu:\n1. Phân tích các yếu tố Loan Đầu: long mạch, sa, thủy, huyệt, minh đường, thanh long, bạch hổ, chu tước, huyền vũ dựa trên hình ảnh và mô tả.\n2. Đánh giá cát hung của thế đất.\n3. Vẽ trực tiếp lên ảnh các yếu tố quan trọng (dòng khí, hướng nước, vị trí tốt xấu) nếu có thể.`;
-                    const result = await geminiService.editImage(prompt, floorPlanImage, 1);
-                    onStateChange({ resultImage: result[0].imageUrl, analysisText: result[0].text });
+                    const result = await processImage(prompt);
+                    if (result && result.length > 0) {
+                        onStateChange({ resultImage: result[0].imageUrl, analysisText: result[0].text });
+                    }
                 } else {
                     prompt += `\n\nYêu cầu:\n1. Phân tích các yếu tố Loan Đầu dựa trên mô tả.\n2. Đánh giá cát hung và đưa ra lời khuyên.`;
                     const textResult = await geminiService.generateText(prompt);
@@ -241,8 +263,10 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
 
                 if (floorPlanImage) {
                     prompt += " Dựa trên mặt bằng được cung cấp, hãy vẽ đè lên ảnh các khu vực Cát/Hung theo Bát Trạch.";
-                    const result = await geminiService.editImage(prompt, floorPlanImage, 1);
-                    onStateChange({ resultImage: result[0].imageUrl, analysisText: result[0].text });
+                    const result = await processImage(prompt);
+                    if (result && result.length > 0) {
+                        onStateChange({ resultImage: result[0].imageUrl, analysisText: result[0].text });
+                    }
                 } else {
                     const textResult = await geminiService.generateText(prompt);
                     onStateChange({ analysisText: textResult });
@@ -395,6 +419,12 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                         </label>
                         <ImageUpload onFileSelect={handleFileSelect} previewUrl={floorPlanImage?.objectURL} />
                     </div>
+                    
+                    {floorPlanImage && (
+                        <div>
+                            <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
+                        </div>
+                    )}
 
                     {/* Credits Cost Bar */}
                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">

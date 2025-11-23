@@ -1,4 +1,3 @@
-
 import { supabase } from './supabaseClient';
 import { GenerationJob } from '../types';
 import { refundCredits } from './paymentService';
@@ -62,6 +61,33 @@ export const updateJobApiKey = async (jobId: string, apiKey: string) => {
             
     } catch (e) {
         console.error("Error logging API key usage:", e);
+    }
+};
+
+export const getQueuePosition = async (jobId: string): Promise<number> => {
+    try {
+        // Get the created_at of the current job
+        const { data: currentJob, error: fetchError } = await supabase
+            .from('generation_jobs')
+            .select('created_at')
+            .eq('id', jobId)
+            .single();
+
+        if (fetchError || !currentJob) return 0;
+
+        // Count jobs that are pending or processing and created before this one
+        const { count, error } = await supabase
+            .from('generation_jobs')
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['pending', 'processing'])
+            .lt('created_at', currentJob.created_at);
+
+        if (error) return 0;
+        
+        // Position is count + 1 (yourself)
+        return (count || 0) + 1;
+    } catch (e) {
+        return 0;
     }
 };
 

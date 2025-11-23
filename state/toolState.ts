@@ -80,6 +80,7 @@ export interface ImageEditorState {
     error: string | null;
     resultImages: string[];
     numberOfImages: number;
+    resolution: ImageResolution;
 }
 
 export interface ViewSyncState {
@@ -144,6 +145,7 @@ export interface MaterialSwapperState {
     error: string | null;
     resultImages: string[];
     numberOfImages: number;
+    resolution: ImageResolution;
 }
 
 export interface UpscaleState {
@@ -175,6 +177,7 @@ export interface StagingState {
     error: string | null;
     resultImages: string[];
     numberOfImages: number;
+    resolution: ImageResolution;
 }
 
 export interface PromptSuggesterState {
@@ -202,6 +205,7 @@ export interface AITechnicalDrawingsState {
     resultImage: string | null;
     drawingType: 'floor-plan' | 'elevation' | 'section';
     detailLevel: 'basic' | 'detailed' | 'annotated' | 'terrain';
+    resolution: ImageResolution;
 }
 
 export interface SketchConverterState {
@@ -243,6 +247,7 @@ export interface FengShuiState {
     bedroomDirection: string;
     eventType: string;
     vanKhanType: string;
+    resolution: ImageResolution;
 }
 
 export interface LuBanRulerState {
@@ -398,6 +403,7 @@ export const initialToolStates = {
         error: null,
         resultImages: [],
         numberOfImages: 1,
+        resolution: 'Standard',
     } as MaterialSwapperState,
     [Tool.Upscale]: {
         sourceImage: null,
@@ -436,6 +442,7 @@ export const initialToolStates = {
         error: null,
         resultImages: [],
         numberOfImages: 1,
+        resolution: 'Standard',
     } as ImageEditorState,
     [Tool.Staging]: {
         prompt: 'Đặt các đồ vật này vào không gian một cách hợp lý và tự nhiên.',
@@ -445,6 +452,7 @@ export const initialToolStates = {
         error: null,
         resultImages: [],
         numberOfImages: 1,
+        resolution: 'Standard',
     } as StagingState,
     [Tool.AITechnicalDrawings]: {
         sourceImage: null,
@@ -453,6 +461,7 @@ export const initialToolStates = {
         resultImage: null,
         drawingType: 'floor-plan',
         detailLevel: 'basic',
+        resolution: 'Standard',
     } as AITechnicalDrawingsState,
     [Tool.SketchConverter]: {
         sourceImage: null,
@@ -492,6 +501,7 @@ export const initialToolStates = {
         bedroomDirection: 'dong-chan',
         eventType: 'dong-tho',
         vanKhanType: 'dong-tho',
+        resolution: 'Standard',
     } as FengShuiState,
     [Tool.LuBanRuler]: {
         width: '1200',

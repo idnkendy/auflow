@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PricingPlan } from '../types';
 import { Logo } from './common/Logo';
@@ -187,7 +186,7 @@ const PublicPricing: React.FC<PublicPricingProps> = ({ onGoHome, onAuthNavigate 
                         </div>
                         <div className="bg-[#191919] p-6 rounded-xl border border-[#302839]">
                             <h3 className="font-bold text-white mb-2">Có gói dùng thử miễn phí không?</h3>
-                            <p className="text-gray-400 text-sm">Có! Mỗi tài khoản mới đăng ký sẽ được tặng ngay 50 Credits để trải nghiệm đầy đủ các tính năng.</p>
+                            <p className="text-gray-400 text-sm">Có! Mỗi tài khoản mới đăng ký sẽ được tặng ngay 60 Credits và 1 tháng sử dụng miễn phí để trải nghiệm đầy đủ các tính năng.</p>
                         </div>
                     </div>
                 </div>

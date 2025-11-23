@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { FileData, Tool } from '../types';
+import { FileData, Tool, ImageResolution } from '../types';
 import { AITechnicalDrawingsState } from '../state/toolState';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -8,6 +8,7 @@ import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
 import ImageComparator from './ImageComparator';
 import OptionSelector from './common/OptionSelector';
+import ResolutionSelector from './common/ResolutionSelector';
 
 interface AITechnicalDrawingsProps {
     state: AITechnicalDrawingsState;
@@ -30,8 +31,24 @@ const detailLevelOptions = [
 ];
 
 const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
-    const { sourceImage, isLoading, error, resultImage, drawingType, detailLevel } = state;
-    const cost = 5;
+    const { sourceImage, isLoading, error, resultImage, drawingType, detailLevel, resolution } = state;
+    
+    // Calculate cost based on resolution
+    const getCostPerImage = () => {
+        switch (resolution) {
+            case 'Standard': return 5;
+            case '1K': return 15;
+            case '2K': return 20;
+            case '4K': return 30;
+            default: return 5;
+        }
+    };
+    
+    const cost = getCostPerImage();
+
+    const handleResolutionChange = (val: ImageResolution) => {
+        onStateChange({ resolution: val });
+    };
 
     const handleFileSelect = (fileData: FileData | null) => {
         onStateChange({
@@ -71,10 +88,21 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
 
         try {
             if (onDeductCredits) {
-                await onDeductCredits(cost, `Tạo bản vẽ kỹ thuật (${drawingType})`);
+                await onDeductCredits(cost, `Tạo bản vẽ kỹ thuật (${drawingType}) - ${resolution}`);
             }
 
-            const results = await geminiService.editImage(prompt, sourceImage, 1);
+            let results: any[] = [];
+
+            // High Quality (Pro) Logic
+            if (resolution === '1K' || resolution === '2K' || resolution === '4K') {
+                const images = await geminiService.generateHighQualityImage(prompt, '1:1', resolution, sourceImage || undefined);
+                results = [{ imageUrl: images[0] }];
+            }
+            // Standard (Flash) Logic
+            else {
+                results = await geminiService.editImage(prompt, sourceImage, 1);
+            }
+
             const imageUrl = results[0].imageUrl;
             onStateChange({ resultImage: imageUrl });
 
@@ -132,6 +160,10 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
                             onChange={(val) => onStateChange({ detailLevel: val as any })}
                             disabled={isLoading}
                         />
+                    </div>
+                    
+                    <div>
+                        <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
                     </div>
 
                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 rounded-lg px-4 py-2 mb-3 border border-gray-200 dark:border-gray-700">
