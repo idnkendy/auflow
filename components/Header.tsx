@@ -91,9 +91,9 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
     : 'Gói miễn phí';
 
   return (
-     <header className="bg-surface/80 dark:bg-[#121212]/80 backdrop-blur-md shadow-sm sticky top-0 z-40 transition-colors duration-300 px-4 sm:px-6 lg:px-8 border-b border-border-color dark:border-[#302839]">
+     <header className="bg-surface/80 dark:bg-[#121212]/80 backdrop-blur-md shadow-sm sticky top-0 z-40 transition-colors duration-300 px-3 sm:px-6 lg:px-8 border-b border-border-color dark:border-[#302839]">
         <nav className="flex justify-between items-center py-3">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
                 {/* Hamburger for Mobile */}
                 <button 
                     onClick={onToggleNav} 
@@ -103,16 +103,16 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                 </button>
 
                 <div className="flex items-center cursor-pointer group" onClick={onGoHome} title="Trang chủ">
-                    <Logo className="w-8 h-8 text-[#7f13ec]" />
-                    <span className="text-text-primary dark:text-white text-xl font-bold tracking-tight ml-2 hidden sm:inline">Auflow</span>
+                    <Logo className="w-7 h-7 sm:w-8 sm:h-8 text-[#7f13ec]" />
+                    <span className="text-text-primary dark:text-white text-lg sm:text-xl font-bold tracking-tight ml-2 hidden xs:inline">Auflow</span>
                 </div>
             </div>
             
-            <div className="flex items-center space-x-3 sm:space-x-6">
+            <div className="flex items-center space-x-2 sm:space-x-6">
                 {/* Status Display - External */}
                 {!isDropdownOpen && userStatus && (
                     <div className="flex items-center gap-3">
-                         {/* Credits */}
+                         {/* Credits - Hidden on extra small screens, visible on small+ */}
                         <div 
                             className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-[#2a1a35] text-purple-700 dark:text-[#DA70D6] rounded-full text-sm font-semibold border border-purple-200 dark:border-[#DA70D6]/30 cursor-default transition-colors" 
                             title="Số dư Credits"
@@ -135,9 +135,9 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                 <div className="relative" ref={dropdownRef}>
                     <button 
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="flex items-center gap-2 focus:outline-none"
+                        className="flex items-center gap-1 sm:gap-2 focus:outline-none"
                     >
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#8A2BE2] to-[#DA70D6] flex items-center justify-center text-white shadow-md ring-2 ring-white dark:ring-[#191919]">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-[#8A2BE2] to-[#DA70D6] flex items-center justify-center text-white shadow-md ring-2 ring-white dark:ring-[#191919]">
                             <span className="text-xs font-bold">{user?.email?.[0].toUpperCase()}</span>
                         </div>
                         <ChevronDownIcon />

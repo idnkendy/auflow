@@ -137,22 +137,25 @@ const Navigation: React.FC<NavigationProps> = ({ activeTool, setActiveTool, isMo
       {/* Backdrop for Mobile */}
       {isMobileOpen && (
         <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 md:hidden transition-opacity"
             onClick={onCloseMobile}
         />
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-surface/95 dark:bg-[#121212]/95 backdrop-blur-xl border-r border-border-color dark:border-[#302839]
+        fixed inset-y-0 left-0 z-50 w-[80%] max-w-[300px] bg-surface dark:bg-[#121212] border-r border-border-color dark:border-[#302839] shadow-2xl
         transform transition-transform duration-300 ease-in-out
-        md:translate-x-0 md:static md:w-64 md:bg-surface/80 dark:md:bg-[#121212]/80 md:border md:rounded-2xl md:m-6 md:h-[calc(100vh-96px)]
+        md:translate-x-0 md:static md:w-64 md:bg-surface/80 dark:md:bg-[#121212]/80 md:shadow-none md:border md:rounded-2xl md:m-6 md:h-[calc(100dvh-96px)]
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="h-full flex flex-col p-4 overflow-y-auto scrollbar-hide">
-            <div className="flex justify-between items-center md:hidden mb-4 px-2">
-                <h2 className="text-lg font-bold text-text-primary dark:text-white">Menu</h2>
-                <button onClick={onCloseMobile} className="text-text-secondary dark:text-gray-400 hover:text-text-primary dark:hover:text-white">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex justify-between items-center md:hidden mb-6 px-2 pt-2">
+                <h2 className="text-xl font-bold text-text-primary dark:text-white">Menu</h2>
+                <button 
+                    onClick={onCloseMobile} 
+                    className="p-2 rounded-lg bg-gray-100 dark:bg-[#302839] text-text-secondary dark:text-gray-400 hover:text-text-primary dark:hover:text-white"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>

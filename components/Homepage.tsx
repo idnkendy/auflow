@@ -54,6 +54,7 @@ const Homepage: React.FC<HomepageProps> = (props) => {
 // --- HEADER ---
 const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onGoToGallery, onOpenProfile, userStatus, onNavigateToTool, onNavigateToPricing }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -66,6 +67,16 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Lock body scroll when mobile menu is open
+    useEffect(() => {
+        if (isMobileMenuOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isMobileMenuOpen]);
+
     const handleSignOut = async () => {
         await supabase.auth.signOut();
         window.location.reload();
@@ -77,6 +88,7 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
         } else {
             onStart();
         }
+        setIsMobileMenuOpen(false);
     };
 
     const expirationDate = userStatus?.subscriptionEnd 
@@ -90,6 +102,7 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                 <h2 className="text-white text-xl font-bold leading-tight tracking-[-0.015em]">Auflow</h2>
             </div>
             
+            {/* DESKTOP MENU */}
             <div className="hidden md:flex flex-1 justify-end gap-8 items-center">
                 <div className="flex items-center gap-9">
                     <button onClick={() => handleNavClick(Tool.ArchitecturalRendering)} className="text-white/80 hover:text-white text-sm font-medium leading-normal">Tính năng</button>
@@ -150,9 +163,60 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                     </button>
                 )}
             </div>
-            <button className="md:hidden text-white" onClick={() => session ? onOpenProfile?.() : onAuthNavigate('login')}>
-                <span className="material-symbols-outlined">menu</span>
+
+            {/* MOBILE HAMBURGER */}
+            <button className="md:hidden text-white p-2" onClick={() => setIsMobileMenuOpen(true)}>
+                <span className="material-symbols-outlined text-2xl">menu</span>
             </button>
+
+            {/* MOBILE MENU OVERLAY */}
+            {isMobileMenuOpen && (
+                <div className="fixed inset-0 bg-[#121212] z-50 flex flex-col p-6 animate-fade-in md:hidden">
+                    <div className="flex justify-between items-center mb-8">
+                        <div className="flex items-center gap-3">
+                            <Logo className="size-8 text-primary" />
+                            <h2 className="text-white text-2xl font-bold">Auflow</h2>
+                        </div>
+                        <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white p-2">
+                            <span className="material-symbols-outlined text-3xl">close</span>
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col gap-6 text-lg font-medium flex-1 overflow-y-auto">
+                        <button onClick={() => handleNavClick(Tool.ArchitecturalRendering)} className="text-left text-white/90 py-2 border-b border-[#302839]">Tính năng</button>
+                        
+                        {session ? (
+                            <>
+                                <button onClick={() => { onGoToGallery?.(); setIsMobileMenuOpen(false); }} className="text-left text-white/90 py-2 border-b border-[#302839]">Thư viện của tôi</button>
+                                <button onClick={() => { onOpenProfile?.(); setIsMobileMenuOpen(false); }} className="text-left text-white/90 py-2 border-b border-[#302839]">Giftcode</button>
+                                <button onClick={() => { onOpenProfile?.(); setIsMobileMenuOpen(false); }} className="text-left text-white/90 py-2 border-b border-[#302839]">Hồ sơ cá nhân</button>
+                                <div className="mt-auto pt-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#8A2BE2] to-[#DA70D6] flex items-center justify-center text-white font-bold">
+                                            {session.user.email?.[0].toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-white">{session.user.email}</p>
+                                            {userStatus && <p className="text-xs text-[#DA70D6]">{userStatus.credits} Credits</p>}
+                                        </div>
+                                    </div>
+                                    <button onClick={handleSignOut} className="w-full py-3 text-red-400 bg-[#302839] rounded-lg">Đăng xuất</button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => { onAuthNavigate('login'); setIsMobileMenuOpen(false); }} className="text-left text-white/90 py-2 border-b border-[#302839]">Đăng nhập</button>
+                                <button 
+                                    onClick={() => { onAuthNavigate('signup'); setIsMobileMenuOpen(false); }} 
+                                    className="mt-4 w-full py-3 gradient-button text-white font-bold rounded-lg"
+                                >
+                                    Dùng thử miễn phí
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </header>
     );
 };

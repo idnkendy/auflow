@@ -388,7 +388,7 @@ const App: React.FC = () => {
 
   if (loadingSession) {
     return (
-      <div className="min-h-screen bg-main-bg dark:bg-[#121212] flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-main-bg dark:bg-[#121212] flex items-center justify-center">
         <Spinner />
       </div>
     );
@@ -409,8 +409,9 @@ const App: React.FC = () => {
             />
         );
     }
+    // Use h-[100dvh] for mobile browser address bar compatibility
     return (
-        <div className="min-h-screen bg-main-bg dark:bg-[#121212] font-sans text-text-primary dark:text-[#EAEAEA] flex flex-col transition-colors duration-300">
+        <div className="h-[100dvh] bg-main-bg dark:bg-[#121212] font-sans text-text-primary dark:text-[#EAEAEA] flex flex-col transition-colors duration-300 overflow-hidden">
             <Header 
                 onGoHome={handleGoHome} 
                 onThemeToggle={handleThemeToggle} 
@@ -423,7 +424,7 @@ const App: React.FC = () => {
                 user={session.user}
                 onToggleNav={() => setIsMobileNavOpen(!isMobileNavOpen)}
             />
-            <div className="relative flex flex-col md:flex-row flex-grow h-[calc(100vh-64px)] overflow-hidden">
+            <div className="relative flex flex-col md:flex-row flex-grow overflow-hidden">
                 {/* Navigation Sidebar - Responsive */}
                 <Navigation 
                     activeTool={activeTool} 
@@ -436,7 +437,10 @@ const App: React.FC = () => {
                 />
                 
                 {/* Main Content Area */}
-                <main className="flex-1 bg-surface/90 dark:bg-[#191919]/90 backdrop-blur-md md:m-6 md:ml-0 md:rounded-2xl shadow-lg border-t md:border border-border-color dark:border-[#302839] overflow-y-auto scrollbar-hide p-4 sm:p-6 lg:p-8 relative z-0 transition-colors duration-300">
+                <main 
+                    className="flex-1 bg-surface/90 dark:bg-[#191919]/90 backdrop-blur-md md:m-6 md:ml-0 md:rounded-2xl shadow-lg border-t md:border border-border-color dark:border-[#302839] overflow-y-auto scrollbar-hide p-3 sm:p-6 lg:p-8 relative z-0 transition-colors duration-300"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                >
                     {renderTool()}
                 </main>
             </div>
