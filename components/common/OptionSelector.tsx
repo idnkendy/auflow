@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface Option {
   value: string;
@@ -13,71 +13,110 @@ interface OptionSelectorProps {
   onChange: (value: string) => void;
   disabled?: boolean;
   id: string;
-  variant?: 'select' | 'grid'; // Added variant prop
+  variant?: 'select' | 'grid';
 }
 
-const OptionSelector: React.FC<OptionSelectorProps> = ({ label, options, value, onChange, disabled, id, variant = 'select' }) => {
-  
-  if (variant === 'grid') {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-3">{label}</label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => onChange(option.value)}
-              disabled={disabled}
-              className={`
-                relative flex items-center justify-center px-3 py-2.5 text-sm rounded-xl border transition-all duration-200 group
-                ${value === option.value 
-                  ? 'bg-primary/5 border-primary text-primary font-bold shadow-sm dark:bg-primary/10' 
-                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-text-secondary dark:text-gray-300 hover:border-primary/50 dark:hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }
-                ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-              `}
-              type="button"
-            >
-              <span className="truncate w-full text-center">{option.label}</span>
-              {value === option.value && (
-                <div className="absolute inset-0 rounded-xl ring-1 ring-primary pointer-events-none"></div>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
+const OptionSelector: React.FC<OptionSelectorProps> = ({ 
+  label, 
+  options, 
+  value, 
+  onChange, 
+  disabled, 
+  id, 
+  variant = 'select' 
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find(o => o.value === value);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelect = (val: string) => {
+    onChange(val);
+    setIsOpen(false);
+  };
 
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">{label}</label>
-      <div className="relative group">
-        <select
-          id={id}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
+    <div className="relative" ref={containerRef}>
+      <label htmlFor={id} className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">
+        {label}
+      </label>
+      
+      <button
+        type="button"
+        id={id}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`
+          w-full flex items-center justify-between bg-white dark:bg-gray-800 
+          border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 
+          text-text-primary dark:text-white transition-all duration-200
+          ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/50 cursor-pointer focus:ring-2 focus:ring-primary/20'}
+          ${isOpen ? 'ring-2 ring-primary/20 border-primary' : ''}
+        `}
+      >
+        <span className="truncate text-sm font-medium">
+          {selectedOption ? selectedOption.label : 'Chọn tùy chọn...'}
+        </span>
+        <svg 
+          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <div 
           className={`
-            w-full appearance-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 
-            text-text-primary dark:text-white rounded-xl px-4 py-3 pr-10 
-            focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all cursor-pointer
-            disabled:opacity-60 disabled:cursor-not-allowed
-            text-sm font-medium shadow-sm
+            absolute z-50 w-full mt-2 bg-white dark:bg-[#1E1E1E] 
+            border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl 
+            overflow-hidden transition-all duration-200 origin-top animate-fade-in
           `}
         >
-          {options.map(option => (
-            <option key={option.value} value={option.value} className="py-2">
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 group-hover:text-primary transition-colors">
-           <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-             <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-           </svg>
+          <style>{`
+            @keyframes fade-in {
+              from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+              to { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            .animate-fade-in { animation: fade-in 0.15s ease-out forwards; }
+          `}</style>
+          <div className={`max-h-64 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 ${variant === 'grid' ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-1'}`}>
+            {options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => handleSelect(option.value)}
+                className={`
+                  flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors
+                  ${value === option.value 
+                    ? 'bg-primary/10 text-primary font-bold dark:bg-primary/20' 
+                    : 'text-text-secondary dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-text-primary dark:hover:text-white'
+                  }
+                  ${variant === 'grid' ? 'text-center justify-center border border-transparent hover:border-gray-200 dark:hover:border-gray-600' : 'text-left'}
+                `}
+              >
+                <span className="truncate">{option.label}</span>
+                {variant === 'select' && value === option.value && (
+                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
