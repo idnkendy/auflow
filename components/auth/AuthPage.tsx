@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../services/supabaseClient';
 import Spinner from '../Spinner';
@@ -57,16 +58,26 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
             });
             if (error) throw error;
             setMessage("Đăng ký thành công! Vui lòng kiểm tra email để xác thực.");
+            setLoading(false);
         } else {
-            const { error } = await supabase.auth.signInWithPassword({
+            const { error, data } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
             if (error) throw error;
+            
+            // Nếu đăng nhập thành công mà App chưa tự chuyển (do onAuthStateChange bị trễ),
+            // chúng ta sẽ đợi 1 chút rồi tải lại trang để đảm bảo session được nhận diện.
+            if (data.session) {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                setLoading(false);
+            }
         }
     } catch (err: any) {
         setError(err.message || "Đã xảy ra lỗi. Vui lòng thử lại.");
-    } finally {
         setLoading(false);
     }
   };

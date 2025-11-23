@@ -105,7 +105,8 @@ const App: React.FC = () => {
       // Check for stale jobs and refund if necessary before getting status
       await jobService.cleanupStaleJobs(session.user.id);
       
-      const status = await getUserStatus(session.user.id);
+      // Pass email to ensure it's saved in DB
+      const status = await getUserStatus(session.user.id, session.user.email);
       setUserStatus(status);
     } else {
       setUserStatus(null);

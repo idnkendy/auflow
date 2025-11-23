@@ -144,26 +144,27 @@ export const getTransactionHistory = async (): Promise<Transaction[]> => {
     }
 };
 
-export const getUserStatus = async (userId: string): Promise<UserStatus> => {
+export const getUserStatus = async (userId: string, email?: string): Promise<UserStatus> => {
     try {
-        const { data: profile } = await withRetry<{ data: { credits: number, subscription_end: string | null } | null }>(() => supabase
+        const { data: profile } = await withRetry<{ data: { credits: number, subscription_end: string | null, email?: string } | null }>(() => supabase
             .from('profiles')
-            .select('credits, subscription_end')
+            .select('credits, subscription_end, email')
             .eq('id', userId)
             .maybeSingle());
 
         if (profile) {
             const now = new Date();
             const subEnd = profile.subscription_end ? new Date(profile.subscription_end) : null;
-            // If subscription_end is null, assume expired for existing users unless we decide otherwise.
-            // Assuming legacy users without date are expired or need migration.
             const isExpired = subEnd ? subEnd < now : true;
+
+            // Sync email if it's missing in profile but present in session
+            if (email && !profile.email) {
+                supabase.from('profiles').update({ email, updated_at: new Date().toISOString() }).eq('id', userId).then(() => console.log("Synced email to profile"));
+            }
 
             // If expired and has credits, wipe them
             if (isExpired && profile.credits > 0) {
                 console.log(`[PaymentService] Subscription expired for ${userId}. Resetting credits from ${profile.credits} to 0.`);
-                
-                // Update DB
                 await supabase.from('profiles').update({ 
                     credits: 0,
                     updated_at: new Date().toISOString()
@@ -190,6 +191,7 @@ export const getUserStatus = async (userId: string): Promise<UserStatus> => {
 
             const { error } = await withRetry<{ error: any }>(() => supabase.from('profiles').upsert({
                 id: userId,
+                email: email, // Save email for new users
                 credits: initialCredits,
                 subscription_end: oneMonthLater.toISOString()
             }, { onConflict: 'id' }));
