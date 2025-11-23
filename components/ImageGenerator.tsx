@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -17,52 +18,52 @@ import ImagePreviewModal from './common/ImagePreviewModal';
 import { supabase } from '../services/supabaseClient';
 
 const buildingTypeOptions = [
-    { value: 'none', label: 'Chưa chọn' },
+    { value: 'none', label: 'Tự động' },
     { value: 'nhà phố', label: 'Nhà phố' },
     { value: 'biệt thự', label: 'Biệt thự' },
     { value: 'nhà cấp 4', label: 'Nhà cấp 4' },
     { value: 'chung cư', label: 'Chung cư' },
-    { value: 'toà nhà văn phòng', label: 'Toà nhà văn phòng' },
-    { value: 'quán cà phê', label: 'Quán cà phê' },
+    { value: 'toà nhà văn phòng', label: 'Văn phòng' },
+    { value: 'quán cà phê', label: 'Cafe' },
     { value: 'nhà hàng', label: 'Nhà hàng' },
 ];
 
 const styleOptions = [
-    { value: 'none', label: 'Chưa chọn' },
+    { value: 'none', label: 'Tự động' },
     { value: 'Hiện đại', label: 'Hiện đại' },
     { value: 'Tối giản', label: 'Tối giản' },
     { value: 'Tân Cổ điển', label: 'Tân Cổ điển' },
     { value: 'Scandinavian', label: 'Scandinavian' },
-    { value: 'Công nghiệp', label: 'Công nghiệp (Industrial)' },
-    { value: 'Nhiệt đới', label: 'Nhiệt đới (Tropical)' },
+    { value: 'Công nghiệp', label: 'Industrial' },
+    { value: 'Nhiệt đới', label: 'Nhiệt đới' },
     { value: 'Brutalism', label: 'Brutalism' },
 ];
 
 const contextOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'trên một đường phố Việt Nam', label: 'Đường phố Việt Nam' },
-    { value: 'ở một làng quê Việt Nam', label: 'Làng quê Việt Nam' },
-    { value: 'trong một khu đô thị hiện đại Việt Nam', label: 'Khu đô thị hiện đại Việt Nam' },
-    { value: 'tại một ngã ba đường phố Việt Nam', label: 'Ngã ba đường phố Việt Nam' },
-    { value: 'tại một ngã tư đường phố Việt Nam', label: 'Ngã tư đường phố Việt Nam' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'trên một đường phố Việt Nam', label: 'Đường phố VN' },
+    { value: 'ở một làng quê Việt Nam', label: 'Làng quê VN' },
+    { value: 'trong một khu đô thị hiện đại Việt Nam', label: 'Đô thị hiện đại' },
+    { value: 'tại một ngã ba đường phố Việt Nam', label: 'Ngã ba đường' },
+    { value: 'tại một ngã tư đường phố Việt Nam', label: 'Ngã tư đường' },
 ];
 
 const lightingOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'bình minh dịu nhẹ', label: 'Ánh sáng bình minh dịu nhẹ' },
-    { value: 'buổi trưa, trời xanh trong', label: 'Ánh sáng buổi trưa, trời xanh trong' },
-    { value: 'nắng chiều, nắng vàng cam', label: 'Ánh nắng chiều, nắng vàng cam' },
-    { value: 'buổi tối, đèn vàng từ trong nhà hắt ra, đèn đường sáng', label: 'Ánh sáng buổi tối, đèn vàng & đèn đường' },
-    { value: 'đêm khuya, đèn công trình sáng và bầu trời đầy sao', label: 'Ánh sáng đêm khuya, trời đầy sao' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'bình minh dịu nhẹ', label: 'Bình minh' },
+    { value: 'buổi trưa, trời xanh trong', label: 'Trưa nắng' },
+    { value: 'nắng chiều, nắng vàng cam', label: 'Hoàng hôn' },
+    { value: 'buổi tối, đèn vàng từ trong nhà hắt ra, đèn đường sáng', label: 'Buổi tối' },
+    { value: 'đêm khuya, đèn công trình sáng và bầu trời đầy sao', label: 'Đêm sao' },
 ];
 
 const weatherOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'trời trong xanh, quang đãng', label: 'Trời trong, quang đãng' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'trời trong xanh, quang đãng', label: 'Trời trong' },
     { value: 'có mưa nhẹ và đường ướt', label: 'Mưa nhẹ' },
     { value: 'có tuyết rơi nhẹ', label: 'Tuyết rơi' },
     { value: 'dưới trời nắng gắt, bóng đổ rõ rệt', label: 'Nắng gắt' },
-    { value: 'sau một cơn mưa, có vũng nước và phản chiếu', label: 'Sau cơn mưa' },
+    { value: 'sau một cơn mưa, có vũng nước và phản chiếu', label: 'Sau mưa' },
 ];
 
 const SparklesIcon = () => (
@@ -497,12 +498,15 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                         {/* Options Grid */}
                         <div className="pt-2">
                             <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Tinh chỉnh chi tiết</label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <OptionSelector id="building-type-selector" label="Loại công trình" options={buildingTypeOptions} value={buildingType} onChange={handleBuildingTypeChange} disabled={isLoading} />
-                                <OptionSelector id="style-selector" label="Phong cách" options={styleOptions} value={style} onChange={handleStyleChange} disabled={isLoading} />
-                                <OptionSelector id="context-selector" label="Bối cảnh" options={contextOptions} value={context} onChange={handleContextChange} disabled={isLoading} />
-                                <OptionSelector id="lighting-selector" label="Ánh sáng" options={lightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} />
-                                <OptionSelector id="weather-selector" label="Thời tiết" options={weatherOptions} value={weather} onChange={handleWeatherChange} disabled={isLoading} />
+                            <div className="space-y-4">
+                                <OptionSelector id="building-type-selector" label="Loại công trình" options={buildingTypeOptions} value={buildingType} onChange={handleBuildingTypeChange} disabled={isLoading} variant="grid" />
+                                <OptionSelector id="style-selector" label="Phong cách" options={styleOptions} value={style} onChange={handleStyleChange} disabled={isLoading} variant="grid" />
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <OptionSelector id="context-selector" label="Bối cảnh" options={contextOptions} value={context} onChange={handleContextChange} disabled={isLoading} variant="select" />
+                                    <OptionSelector id="lighting-selector" label="Ánh sáng" options={lightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} variant="select" />
+                                    <OptionSelector id="weather-selector" label="Thời tiết" options={weatherOptions} value={weather} onChange={handleWeatherChange} disabled={isLoading} variant="select" />
+                                </div>
                             </div>
                         </div>
                         

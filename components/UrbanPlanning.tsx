@@ -15,28 +15,28 @@ import ResolutionSelector from './common/ResolutionSelector';
 import ImagePreviewModal from './common/ImagePreviewModal';
 
 const viewTypeOptions = [
-    { value: 'none', label: 'Chưa chọn' },
+    { value: 'none', label: 'Tự động' },
     { value: 'phối cảnh mắt chim (bird\'s-eye view)', label: 'Phối cảnh mắt chim' },
-    { value: 'phối cảnh từ trên cao góc 45 độ (aerial 45-degree view)', label: 'Phối cảnh trên cao (45°)' },
-    { value: 'phối cảnh tầm mắt người đi bộ (street-level perspective)', label: 'Phối cảnh tầm mắt người' },
-    { value: 'phối cảnh ven sông/ven biển (waterfront view)', label: 'Phối cảnh ven sông/biển' },
+    { value: 'phối cảnh từ trên cao góc 45 độ (aerial 45-degree view)', label: 'Phối cảnh 45°' },
+    { value: 'phối cảnh tầm mắt người đi bộ (street-level perspective)', label: 'Góc nhìn người' },
+    { value: 'phối cảnh ven sông/ven biển (waterfront view)', label: 'Ven sông/biển' },
 ];
 
 const densityOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'khu dân cư ngoại ô mật độ thấp', label: 'Ngoại ô mật độ thấp' },
-    { value: 'khu phức hợp mật độ trung bình', label: 'Phức hợp mật độ trung bình' },
-    { value: 'lõi đô thị mật độ cao', label: 'Trung tâm mật độ cao' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'khu dân cư ngoại ô mật độ thấp', label: 'Ngoại ô thấp tầng' },
+    { value: 'khu phức hợp mật độ trung bình', label: 'Phức hợp vừa' },
+    { value: 'lõi đô thị mật độ cao', label: 'Đô thị cao tầng' },
     { value: 'khu công viên và cây xanh', label: 'Công viên cây xanh' },
 ];
 
 const lightingOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'bình minh dịu nhẹ', label: 'Ánh sáng bình minh' },
-    { value: 'buổi trưa, trời xanh trong', label: 'Ánh sáng ban ngày' },
-    { value: 'nắng chiều, nắng vàng cam', label: 'Ánh nắng chiều (giờ vàng)' },
-    { value: 'buổi tối, đèn đô thị sáng rực', label: 'Ánh sáng ban đêm' },
-    { value: 'khung cảnh u ám, có mây', label: 'Trời u ám, có mây' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'bình minh dịu nhẹ', label: 'Bình minh' },
+    { value: 'buổi trưa, trời xanh trong', label: 'Ban ngày' },
+    { value: 'nắng chiều, nắng vàng cam', label: 'Hoàng hôn' },
+    { value: 'buổi tối, đèn đô thị sáng rực', label: 'Ban đêm' },
+    { value: 'khung cảnh u ám, có mây', label: 'Trời u ám' },
 ];
 
 const SparklesIcon = () => (
@@ -326,10 +326,12 @@ const UrbanPlanning: React.FC<UrbanPlanningProps> = ({ state, onStateChange, onS
                             
                             <div className="pt-2">
                                 <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Tinh chỉnh tùy chọn</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <OptionSelector id="view-type-selector" label="Góc nhìn" options={viewTypeOptions} value={viewType} onChange={handleViewTypeChange} disabled={isLoading} />
-                                    <OptionSelector id="density-selector" label="Mật độ xây dựng" options={densityOptions} value={density} onChange={handleDensityChange} disabled={isLoading} />
-                                    <OptionSelector id="lighting-selector-urban" label="Ánh sáng & Thời gian" options={lightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} />
+                                <div className="space-y-4">
+                                    <OptionSelector id="view-type-selector" label="Góc nhìn" options={viewTypeOptions} value={viewType} onChange={handleViewTypeChange} disabled={isLoading} variant="grid" />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <OptionSelector id="density-selector" label="Mật độ" options={densityOptions} value={density} onChange={handleDensityChange} disabled={isLoading} variant="select" />
+                                        <OptionSelector id="lighting-selector-urban" label="Ánh sáng" options={lightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} variant="select" />
+                                    </div>
                                 </div>
                             </div>
                             

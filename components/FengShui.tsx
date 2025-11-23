@@ -309,16 +309,14 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* LEFT COLUMN - INPUTS */}
                 <div className="lg:col-span-1 space-y-6 bg-surface dark:bg-dark-bg p-6 rounded-xl border border-border-color dark:border-gray-700 h-fit">
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Loại phân tích</label>
-                        <select 
-                            value={analysisType} 
-                            onChange={(e) => onStateChange({ analysisType: e.target.value })}
-                            className="w-full bg-main-bg dark:bg-gray-700 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white"
-                        >
-                            {analysisTypes.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                        </select>
-                    </div>
+                    <OptionSelector 
+                        id="analysis-type"
+                        label="Loại phân tích"
+                        options={analysisTypes.map(t => ({ value: t.id, label: t.label }))}
+                        value={analysisType}
+                        onChange={(val) => onStateChange({ analysisType: val })}
+                        variant="select"
+                    />
 
                     {/* DYNAMIC INPUT FIELDS BASED ON TYPE */}
                     {['bat-trach', 'duong-trach', 'ngay-gio-tot', 'xem-tuoi', 'mau-sac', 'van-khan'].includes(analysisType) && (
@@ -329,18 +327,18 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                                     type="number" 
                                     value={birthYear} 
                                     onChange={(e) => onStateChange({ birthYear: e.target.value })}
-                                    className="w-full bg-main-bg dark:bg-gray-700 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white"
+                                    className="w-full bg-main-bg dark:bg-gray-700 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white focus:ring-2 focus:ring-accent outline-none transition-all"
                                     placeholder="VD: 1990"
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">Giới tính</label>
                                 <div className="flex gap-4">
-                                    <label className="flex items-center space-x-2 text-text-primary dark:text-white">
+                                    <label className="flex items-center space-x-2 text-text-primary dark:text-white cursor-pointer">
                                         <input type="radio" name="gender" value="male" checked={gender === 'male'} onChange={() => onStateChange({ gender: 'male' })} className="text-accent focus:ring-accent" />
                                         <span>Nam</span>
                                     </label>
-                                    <label className="flex items-center space-x-2 text-text-primary dark:text-white">
+                                    <label className="flex items-center space-x-2 text-text-primary dark:text-white cursor-pointer">
                                         <input type="radio" name="gender" value="female" checked={gender === 'female'} onChange={() => onStateChange({ gender: 'female' })} className="text-accent focus:ring-accent" />
                                         <span>Nữ</span>
                                     </label>
@@ -355,7 +353,8 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                             label="Công việc cần làm" 
                             options={eventTypes} 
                             value={eventType} 
-                            onChange={(val) => onStateChange({ eventType: val })} 
+                            onChange={(val) => onStateChange({ eventType: val })}
+                            variant="select"
                          />
                     )}
 
@@ -366,6 +365,7 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                             options={vanKhanTypes} 
                             value={vanKhanType} 
                             onChange={(val) => onStateChange({ vanKhanType: val })} 
+                            variant="select"
                          />
                     )}
 
@@ -375,7 +375,8 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                             label="Hướng nhà" 
                             options={houseDirections} 
                             value={houseDirection} 
-                            onChange={(val) => onStateChange({ houseDirection: val })} 
+                            onChange={(val) => onStateChange({ houseDirection: val })}
+                            variant="grid" 
                          />
                     )}
                     
@@ -386,7 +387,7 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                                 type="number" 
                                 value={birthYear} 
                                 onChange={(e) => onStateChange({ birthYear: e.target.value })}
-                                className="w-full bg-main-bg dark:bg-gray-700 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white"
+                                className="w-full bg-main-bg dark:bg-gray-700 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white focus:ring-2 focus:ring-accent outline-none transition-all"
                                 placeholder="VD: 2024"
                             />
                         </div>
@@ -399,7 +400,7 @@ const FengShui: React.FC<FengShuiProps> = ({ state, onStateChange, userCredits =
                                 rows={4}
                                 value={terrainDescription} 
                                 onChange={(e) => onStateChange({ terrainDescription: e.target.value })}
-                                className="w-full bg-main-bg dark:bg-gray-700 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white"
+                                className="w-full bg-main-bg dark:bg-gray-700 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white focus:ring-2 focus:ring-accent outline-none transition-all"
                                 placeholder="Mô tả những gì bạn thấy xung quanh: đường đâm thẳng vào nhà, cột điện trước cửa, ao hồ sau nhà..."
                             />
                              <button 

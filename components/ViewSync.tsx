@@ -16,27 +16,25 @@ import ResolutionSelector from './common/ResolutionSelector';
 // --- Categorized Exterior Views for Combination ---
 const perspectiveAngles = [
     { id: 'default', label: 'Mặc định', promptClause: "the same general perspective as the source image" },
-    { id: 'front', label: 'Mặt tiền chính diện', promptClause: "a straight-on front elevation view of the building" },
-    { id: 'left-side', label: '3/4 bên trái', promptClause: "a 3/4 perspective view from the front-left, showing both the front and left facades" },
-    { id: 'right-side', label: '3/4 bên phải', promptClause: "a 3/4 perspective view from the front-right, showing both the front and right facades" },
-    { id: 'wide-frame', label: 'Mở rộng khung hình', promptClause: "a view that is zoomed out from the building, showing more of the surrounding environment and context, as if widening the camera frame" },
-    { id: 'panoramic', label: 'Toàn cảnh Panorama', promptClause: "a wide panoramic view of the building, showing its context and surroundings" },
-    { id: 'top-down', label: 'Từ trên nhìn xuống', promptClause: "a top-down aerial or bird's-eye view of the project" },
-    { id: 'low-angle', label: 'Đứng từ dưới cổng nhà nhìn lên', promptClause: "a dramatic low-angle view, looking up from under the main gate or entrance" },
-    { id: 'close-up', label: 'Cận cảnh chi tiết', promptClause: "a close-up or detail view of a significant architectural feature (like the entrance or a unique window design)" },
-    { id: 'upper-floor-close-up', label: 'Cận cảnh tầng lầu', promptClause: "a close-up view focusing on an upper floor of the building, highlighting details like windows, balconies, or facade materials on that level" },
-    { id: 'detail-door-material', label: 'Cận cảnh Cửa/Vật liệu', promptClause: "a detailed close-up view focusing on the main entrance door and the surrounding materials (like brick, stone, or wood), emphasizing texture and craftsmanship" },
+    { id: 'front', label: 'Chính diện', promptClause: "a straight-on front elevation view of the building" },
+    { id: 'left-side', label: '3/4 Trái', promptClause: "a 3/4 perspective view from the front-left, showing both the front and left facades" },
+    { id: 'right-side', label: '3/4 Phải', promptClause: "a 3/4 perspective view from the front-right, showing both the front and right facades" },
+    { id: 'wide-frame', label: 'Góc rộng', promptClause: "a view that is zoomed out from the building, showing more of the surrounding environment and context, as if widening the camera frame" },
+    { id: 'panoramic', label: 'Panorama', promptClause: "a wide panoramic view of the building, showing its context and surroundings" },
+    { id: 'top-down', label: 'Trên cao', promptClause: "a top-down aerial or bird's-eye view of the project" },
+    { id: 'low-angle', label: 'Ngước lên', promptClause: "a dramatic low-angle view, looking up from under the main gate or entrance" },
+    { id: 'close-up', label: 'Cận cảnh', promptClause: "a close-up or detail view of a significant architectural feature (like the entrance or a unique window design)" },
 ];
 
 const atmosphericAngles = [
     { id: 'default', label: 'Mặc định', promptClause: "with standard daylight lighting" },
-    { id: 'early-morning', label: 'Buổi sáng sớm', promptClause: "in the early morning, with soft, gentle sunrise light and long shadows" },
-    { id: 'midday-sun', label: 'Buổi trưa nắng', promptClause: "at midday under bright, direct sunlight with strong, short shadows" },
-    { id: 'late-afternoon', label: 'Buổi chiều tà', promptClause: "during the late afternoon (golden hour), with warm, orange-hued light and long, dramatic shadows" },
+    { id: 'early-morning', label: 'Sáng sớm', promptClause: "in the early morning, with soft, gentle sunrise light and long shadows" },
+    { id: 'midday-sun', label: 'Trưa nắng', promptClause: "at midday under bright, direct sunlight with strong, short shadows" },
+    { id: 'late-afternoon', label: 'Chiều tà', promptClause: "during the late afternoon (golden hour), with warm, orange-hued light and long, dramatic shadows" },
     { id: 'night', label: 'Ban đêm', promptClause: "at night, with interior and exterior lights turned on" },
     { id: 'rainy', label: 'Trời mưa', promptClause: "during a gentle rain, with wet surfaces and a slightly overcast sky" },
-    { id: 'misty', label: 'Có sương mù', promptClause: "on a misty or foggy morning, creating a soft and mysterious atmosphere" },
-    { id: 'after-rain', label: 'Trời sau mưa', promptClause: "just after a rain shower, with wet ground reflecting the sky and surroundings, and a sense of freshness in the air" },
+    { id: 'misty', label: 'Sương mù', promptClause: "on a misty or foggy morning, creating a soft and mysterious atmosphere" },
+    { id: 'after-rain', label: 'Sau mưa', promptClause: "just after a rain shower, with wet ground reflecting the sky and surroundings, and a sense of freshness in the air" },
 ];
 
 const framingAngles = [
@@ -223,13 +221,23 @@ const ViewSync: React.FC<ViewSyncProps> = ({ state, onStateChange, userCredits =
                     </div>
                     {sceneType === 'exterior' ? (
                         <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700 space-y-6">
-                            <OptionSelector id="perspective-selector" label="3. Chọn Góc Máy Chính" options={perspectiveAngles.map(a => ({ value: a.id, label: a.label }))} value={selectedPerspective} onChange={(val) => onStateChange({ selectedPerspective: val, directionImage: null })} disabled={isLoading || !!directionImage} />
-                            <OptionSelector id="atmosphere-selector" label="4. Chọn Ánh Sáng & Thời Tiết" options={atmosphericAngles.map(a => ({ value: a.id, label: a.label }))} value={selectedAtmosphere} onChange={(val) => onStateChange({ selectedAtmosphere: val })} disabled={isLoading} />
-                            <OptionSelector id="framing-selector" label="5. Chọn Hiệu Ứng Khung Hình (Tùy chọn)" options={framingAngles.map(a => ({ value: a.id, label: a.label }))} value={selectedFraming} onChange={(val) => onStateChange({ selectedFraming: val })} disabled={isLoading} />
+                            <OptionSelector 
+                                id="perspective-selector" 
+                                label="3. Chọn Góc Máy Chính" 
+                                options={perspectiveAngles.map(a => ({ value: a.id, label: a.label }))} 
+                                value={selectedPerspective} 
+                                onChange={(val) => onStateChange({ selectedPerspective: val, directionImage: null })} 
+                                disabled={isLoading || !!directionImage} 
+                                variant="grid" 
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <OptionSelector id="atmosphere-selector" label="4. Chọn Ánh Sáng & Thời Tiết" options={atmosphericAngles.map(a => ({ value: a.id, label: a.label }))} value={selectedAtmosphere} onChange={(val) => onStateChange({ selectedAtmosphere: val })} disabled={isLoading} variant="select" />
+                                <OptionSelector id="framing-selector" label="5. Chọn Hiệu Ứng Khung Hình" options={framingAngles.map(a => ({ value: a.id, label: a.label }))} value={selectedFraming} onChange={(val) => onStateChange({ selectedFraming: val })} disabled={isLoading} variant="select" />
+                            </div>
                         </div>
                     ) : (
                         <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700 self-start">
-                            <OptionSelector id="interior-angle-selector" label="3. Chọn góc nhìn để tạo" options={interiorViewAngles.map(a => ({ value: a.id, label: a.label }))} value={selectedInteriorAngle} onChange={(val) => onStateChange({ selectedInteriorAngle: val })} disabled={isLoading} />
+                            <OptionSelector id="interior-angle-selector" label="3. Chọn góc nhìn để tạo" options={interiorViewAngles.map(a => ({ value: a.id, label: a.label }))} value={selectedInteriorAngle} onChange={(val) => onStateChange({ selectedInteriorAngle: val })} disabled={isLoading} variant="grid" />
                         </div>
                     )}
                     <div className="bg-main-bg/50 dark:bg-dark-bg/50 p-6 rounded-xl border border-border-color dark:border-gray-700 self-start">

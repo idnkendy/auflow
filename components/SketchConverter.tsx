@@ -8,6 +8,7 @@ import Spinner from './Spinner';
 import ImageUpload from './common/ImageUpload';
 import ImageComparator from './ImageComparator';
 import ResolutionSelector from './common/ResolutionSelector';
+import OptionSelector from './common/OptionSelector';
 
 interface SketchConverterProps {
     state: SketchConverterState;
@@ -38,6 +39,18 @@ const getClosestAspectRatio = (width: number, height: number): AspectRatio => {
     });
     return closest;
 };
+
+const styleOptions = [
+    { value: 'pencil', label: 'Bút chì' },
+    { value: 'charcoal', label: 'Than củi' },
+    { value: 'watercolor', label: 'Màu nước' },
+];
+
+const detailLevelOptions = [
+    { value: 'low', label: 'Ít chi tiết' },
+    { value: 'medium', label: 'Chi tiết vừa' },
+    { value: 'high', label: 'Nhiều chi tiết' },
+];
 
 const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange, userCredits = 0, onDeductCredits }) => {
     const { sourceImage, isLoading, error, resultImage, sketchStyle, detailLevel, resolution } = state;
@@ -156,34 +169,6 @@ const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange,
         document.body.removeChild(link);
     };
 
-    const renderOptionSelector = (
-        label: string,
-        options: { value: string, label: string }[],
-        currentValue: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onChange: (value: any) => void
-    ) => (
-        <div>
-            <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">{label}</label>
-            <div className="flex flex-wrap items-center gap-2 bg-main-bg dark:bg-gray-700/50 p-1 rounded-lg">
-                {options.map(option => (
-                    <button
-                        key={option.value}
-                        onClick={() => onChange(option.value)}
-                        disabled={isLoading}
-                        className={`flex-grow py-2 px-3 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-main-bg dark:focus:ring-offset-gray-700/50 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed ${
-                            currentValue === option.value
-                                ? 'bg-accent text-white shadow'
-                                : 'bg-transparent text-text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                        }`}
-                    >
-                        {option.label}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-
     return (
         <div className="flex flex-col gap-8">
             <h2 className="text-2xl font-bold text-text-primary dark:text-white mb-4">AI Biến Ảnh Thành Sketch</h2>
@@ -196,26 +181,26 @@ const SketchConverter: React.FC<SketchConverterProps> = ({ state, onStateChange,
                         <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">1. Tải Lên Ảnh Gốc</label>
                         <ImageUpload onFileSelect={handleFileSelect} id="sketch-converter-source" previewUrl={sourceImage?.objectURL} />
                     </div>
-                    {renderOptionSelector(
-                        "2. Chọn phong cách",
-                        [
-                            { value: 'pencil', label: 'Bút chì' },
-                            { value: 'charcoal', label: 'Than củi' },
-                            { value: 'watercolor', label: 'Màu nước' },
-                        ],
-                        sketchStyle,
-                        (value) => onStateChange({ sketchStyle: value })
-                    )}
-                    {renderOptionSelector(
-                        "3. Chọn mức độ chi tiết",
-                        [
-                            { value: 'low', label: 'Ít chi tiết' },
-                            { value: 'medium', label: 'Chi tiết vừa' },
-                            { value: 'high', label: 'Nhiều chi tiết' },
-                        ],
-                        detailLevel,
-                        (value) => onStateChange({ detailLevel: value })
-                    )}
+                    
+                    <OptionSelector
+                        id="sketch-style"
+                        label="2. Chọn phong cách"
+                        options={styleOptions}
+                        value={sketchStyle}
+                        onChange={(val) => onStateChange({ sketchStyle: val as any })}
+                        disabled={isLoading}
+                        variant="grid"
+                    />
+
+                    <OptionSelector
+                        id="detail-level"
+                        label="3. Chọn mức độ chi tiết"
+                        options={detailLevelOptions}
+                        value={detailLevel}
+                        onChange={(val) => onStateChange({ detailLevel: val as any })}
+                        disabled={isLoading}
+                        variant="grid"
+                    />
                     
                     <div>
                         <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />

@@ -18,43 +18,43 @@ import ImagePreviewModal from './common/ImagePreviewModal';
 import { supabase } from '../services/supabaseClient';
 
 const styleOptions = [
-    { value: 'none', label: 'Chưa chọn' },
+    { value: 'none', label: 'Tự động' },
     { value: 'Hiện đại', label: 'Hiện đại' },
     { value: 'Tối giản', label: 'Tối giản' },
     { value: 'Tân Cổ điển', label: 'Tân Cổ điển' },
     { value: 'Scandinavian', label: 'Scandinavian' },
     { value: 'Japandi', label: 'Japandi' },
-    { value: 'Công nghiệp', label: 'Công nghiệp (Industrial)' },
-    { value: 'Nhiệt đới', label: 'Nhiệt đới (Tropical)' },
+    { value: 'Công nghiệp', label: 'Industrial' },
+    { value: 'Nhiệt đới', label: 'Nhiệt đới' },
     { value: 'Bohemian', label: 'Bohemian' },
 ];
 
 const roomTypeOptions = [
-    { value: 'none', label: 'Chưa chọn' },
+    { value: 'none', label: 'Tự động' },
     { value: 'Phòng khách', label: 'Phòng khách' },
     { value: 'Phòng ngủ', label: 'Phòng ngủ' },
     { value: 'Nhà bếp', label: 'Nhà bếp' },
     { value: 'Phòng ăn', label: 'Phòng ăn' },
     { value: 'Phòng tắm', label: 'Phòng tắm' },
-    { value: 'Văn phòng tại nhà', label: 'Văn phòng tại nhà' },
+    { value: 'Văn phòng tại nhà', label: 'Văn phòng' },
 ];
 
 const interiorLightingOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'Ánh sáng tự nhiên ban ngày, chan hòa', label: 'Ánh sáng tự nhiên ban ngày' },
-    { value: 'Ánh sáng nhân tạo ấm áp buổi tối', label: 'Ánh sáng nhân tạo ấm áp' },
-    { value: 'Ánh sáng studio, làm nổi bật chi tiết', label: 'Ánh sáng studio' },
-    { value: 'Ánh sáng moody, có độ tương phản cao', label: 'Ánh sáng moody, tương phản' },
-    { value: 'Ánh sáng đèn neon hiện đại', label: 'Ánh sáng đèn neon' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'Ánh sáng tự nhiên ban ngày, chan hòa', label: 'Tự nhiên' },
+    { value: 'Ánh sáng nhân tạo ấm áp buổi tối', label: 'Ấm áp' },
+    { value: 'Ánh sáng studio, làm nổi bật chi tiết', label: 'Studio' },
+    { value: 'Ánh sáng moody, có độ tương phản cao', label: 'Moody' },
+    { value: 'Ánh sáng đèn neon hiện đại', label: 'Neon' },
 ];
 
 const colorPaletteOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'Tông màu trung tính (trắng, xám, be)', label: 'Tông màu trung tính' },
-    { value: 'Tông màu ấm (kem, nâu, cam đất)', label: 'Tông màu ấm' },
-    { value: 'Tông màu lạnh (xanh dương, xanh lá, xám)', label: 'Tông màu lạnh' },
-    { value: 'Tông màu tương phản cao (đen và trắng)', label: 'Tông màu tương phản' },
-    { value: 'Tông màu pastel nhẹ nhàng', label: 'Tông màu pastel' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'Tông màu trung tính (trắng, xám, be)', label: 'Trung tính' },
+    { value: 'Tông màu ấm (kem, nâu, cam đất)', label: 'Tông ấm' },
+    { value: 'Tông màu lạnh (xanh dương, xanh lá, xám)', label: 'Tông lạnh' },
+    { value: 'Tông màu tương phản cao (đen và trắng)', label: 'Tương phản' },
+    { value: 'Tông màu pastel nhẹ nhàng', label: 'Pastel' },
 ];
 
 const SparklesIcon = () => (
@@ -378,11 +378,13 @@ const InteriorGenerator: React.FC<InteriorGeneratorProps> = ({ state, onStateCha
                             
                             <div className="pt-2">
                                 <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Tinh chỉnh tùy chọn</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <OptionSelector id="style-selector-int" label="Phong cách thiết kế" options={styleOptions} value={style} onChange={handleStyleChange} disabled={isLoading} />
-                                    <OptionSelector id="room-type-selector" label="Loại phòng" options={roomTypeOptions} value={roomType} onChange={handleRoomTypeChange} disabled={isLoading} />
-                                    <OptionSelector id="lighting-selector-int" label="Ánh sáng" options={interiorLightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} />
-                                    <OptionSelector id="color-palette-selector" label="Tone màu" options={colorPaletteOptions} value={colorPalette} onChange={handleColorPaletteChange} disabled={isLoading} />
+                                <div className="space-y-4">
+                                    <OptionSelector id="room-type-selector" label="Loại phòng" options={roomTypeOptions} value={roomType} onChange={handleRoomTypeChange} disabled={isLoading} variant="grid" />
+                                    <OptionSelector id="style-selector-int" label="Phong cách thiết kế" options={styleOptions} value={style} onChange={handleStyleChange} disabled={isLoading} variant="grid" />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <OptionSelector id="lighting-selector-int" label="Ánh sáng" options={interiorLightingOptions} value={lighting} onChange={handleLightingChange} disabled={isLoading} variant="select" />
+                                        <OptionSelector id="color-palette-selector" label="Tone màu" options={colorPaletteOptions} value={colorPalette} onChange={handleColorPaletteChange} disabled={isLoading} variant="select" />
+                                    </div>
                                 </div>
                             </div>
                             

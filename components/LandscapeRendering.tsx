@@ -15,32 +15,32 @@ import ResolutionSelector from './common/ResolutionSelector';
 import ImagePreviewModal from './common/ImagePreviewModal';
 
 const gardenStyleOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'vườn Zen Nhật Bản', label: 'Vườn Zen Nhật Bản' },
-    { value: 'vườn nhiệt đới rậm rạp', label: 'Vườn nhiệt đới' },
-    { value: 'sân vườn Anh Quốc cổ điển', label: 'Vườn Anh cổ điển' },
-    { value: 'sân vườn hiện đại, tối giản', label: 'Sân vườn hiện đại' },
-    { value: 'vườn Địa Trung Hải', label: 'Vườn Địa Trung Hải' },
-    { value: 'vườn làng quê Việt Nam', label: 'Vườn quê Việt Nam' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'vườn Zen Nhật Bản', label: 'Zen Nhật Bản' },
+    { value: 'vườn nhiệt đới rậm rạp', label: 'Nhiệt đới' },
+    { value: 'sân vườn Anh Quốc cổ điển', label: 'Anh Quốc' },
+    { value: 'sân vườn hiện đại, tối giản', label: 'Hiện đại' },
+    { value: 'vườn Địa Trung Hải', label: 'Địa Trung Hải' },
+    { value: 'vườn làng quê Việt Nam', label: 'Quê Việt Nam' },
 ];
 
 const timeOfDayOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'ban ngày nắng đẹp', label: 'Ban ngày nắng đẹp' },
-    { value: 'hoàng hôn (giờ vàng)', label: 'Hoàng hôn (giờ vàng)' },
-    { value: 'ban đêm với đèn sân vườn', label: 'Ban đêm có đèn hắt' },
-    { value: 'ngày u ám, nhiều mây', label: 'Ngày u ám' },
-    { value: 'sau cơn mưa, mặt đất ẩm ướt', label: 'Sau cơn mưa' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'ban ngày nắng đẹp', label: 'Nắng đẹp' },
+    { value: 'hoàng hôn (giờ vàng)', label: 'Hoàng hôn' },
+    { value: 'ban đêm với đèn sân vườn', label: 'Ban đêm' },
+    { value: 'ngày u ám, nhiều mây', label: 'U ám' },
+    { value: 'sau cơn mưa, mặt đất ẩm ướt', label: 'Sau mưa' },
 ];
 
 const featureOptions = [
-    { value: 'none', label: 'Chưa chọn' },
-    { value: 'có một hồ cá Koi nhỏ', label: 'Có hồ cá Koi' },
-    { value: 'có lối đi bằng đá cuội', label: 'Có lối đi bằng đá' },
-    { value: 'có một giàn hoa giấy', label: 'Có giàn hoa' },
-    { value: 'có khu vực BBQ ngoài trời', label: 'Có khu vực BBQ' },
-    { value: 'có một thác nước nhỏ', label: 'Có thác nước' },
-    { value: 'có nhiều loại hoa đầy màu sắc', label: 'Có nhiều hoa màu sắc' },
+    { value: 'none', label: 'Tự động' },
+    { value: 'có một hồ cá Koi nhỏ', label: 'Hồ cá Koi' },
+    { value: 'có lối đi bằng đá cuội', label: 'Lối đi đá' },
+    { value: 'có một giàn hoa giấy', label: 'Giàn hoa' },
+    { value: 'có khu vực BBQ ngoài trời', label: 'Khu BBQ' },
+    { value: 'có một thác nước nhỏ', label: 'Thác nước' },
+    { value: 'có nhiều loại hoa đầy màu sắc', label: 'Vườn hoa' },
 ];
 
 const SparklesIcon = () => (
@@ -317,10 +317,12 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
                             
                             <div className="pt-2">
                                 <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-2">3. Tinh chỉnh tùy chọn</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <OptionSelector id="style-selector" label="Phong cách vườn" options={gardenStyleOptions} value={gardenStyle} onChange={handleGardenStyleChange} disabled={isLoading} />
-                                    <OptionSelector id="time-selector" label="Thời gian trong ngày" options={timeOfDayOptions} value={timeOfDay} onChange={handleTimeOfDayChange} disabled={isLoading} />
-                                    <OptionSelector id="feature-selector" label="Thêm chi tiết" options={featureOptions} value={features} onChange={handleFeaturesChange} disabled={isLoading} />
+                                <div className="space-y-4">
+                                    <OptionSelector id="style-selector" label="Phong cách vườn" options={gardenStyleOptions} value={gardenStyle} onChange={handleGardenStyleChange} disabled={isLoading} variant="grid" />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <OptionSelector id="time-selector" label="Thời gian" options={timeOfDayOptions} value={timeOfDay} onChange={handleTimeOfDayChange} disabled={isLoading} variant="select" />
+                                        <OptionSelector id="feature-selector" label="Thêm chi tiết" options={featureOptions} value={features} onChange={handleFeaturesChange} disabled={isLoading} variant="select" />
+                                    </div>
                                 </div>
                             </div>
                             
@@ -395,7 +397,7 @@ const LandscapeRendering: React.FC<LandscapeRenderingProps> = ({ state, onStateC
                                     title="Chuyển ảnh này tới Đồng Bộ View để xử lý tiếp"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H-2a2 2 0 01-2-2v-2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 01-2 2H-2a2 2 0 01-2-2v-2z" />
                                     </svg>
                                     Đồng bộ
                                 </button>

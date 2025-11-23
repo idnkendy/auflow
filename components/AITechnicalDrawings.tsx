@@ -174,24 +174,24 @@ const AITechnicalDrawings: React.FC<AITechnicalDrawingsProps> = ({ state, onStat
                         <ImageUpload onFileSelect={handleFileSelect} id="tech-drawing-source" previewUrl={sourceImage?.objectURL} />
                     </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <OptionSelector 
-                            id="drawing-type"
-                            label="2. Loại bản vẽ"
-                            options={drawingTypeOptions}
-                            value={drawingType}
-                            onChange={(val) => onStateChange({ drawingType: val as any })}
-                            disabled={isLoading}
-                        />
-                        <OptionSelector 
-                            id="detail-level"
-                            label="3. Mức độ chi tiết"
-                            options={detailLevelOptions}
-                            value={detailLevel}
-                            onChange={(val) => onStateChange({ detailLevel: val as any })}
-                            disabled={isLoading}
-                        />
-                    </div>
+                    <OptionSelector 
+                        id="drawing-type"
+                        label="2. Loại bản vẽ"
+                        options={drawingTypeOptions}
+                        value={drawingType}
+                        onChange={(val) => onStateChange({ drawingType: val as any })}
+                        disabled={isLoading}
+                        variant="grid"
+                    />
+                    <OptionSelector 
+                        id="detail-level"
+                        label="3. Mức độ chi tiết"
+                        options={detailLevelOptions}
+                        value={detailLevel}
+                        onChange={(val) => onStateChange({ detailLevel: val as any })}
+                        disabled={isLoading}
+                        variant="grid"
+                    />
                     
                     <div>
                         <ResolutionSelector value={resolution} onChange={handleResolutionChange} disabled={isLoading} />
