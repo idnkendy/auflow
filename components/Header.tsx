@@ -88,7 +88,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
 
   const expirationDate = userStatus?.subscriptionEnd 
     ? new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN') 
-    : 'Gói miễn phí';
+    : 'Vĩnh viễn';
 
   return (
      <header className="bg-surface/80 dark:bg-[#121212]/80 backdrop-blur-md shadow-sm sticky top-0 z-40 transition-colors duration-300 px-3 sm:px-6 lg:px-8 border-b border-border-color dark:border-[#302839]">
@@ -174,7 +174,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                                                  <CalendarIcon />
                                                  <span>Hết hạn:</span>
                                              </div>
-                                             <span className="font-medium">{expirationDate}</span>
+                                             <span className="font-medium text-text-primary dark:text-white">{expirationDate}</span>
                                         </div>
                                     </div>
                                 )}

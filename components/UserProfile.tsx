@@ -115,7 +115,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
     // Mock Profile Data
     const userEmail = session.user.email;
     const userName = session.user.user_metadata?.full_name || "Người dùng Auflow";
-    const joinDate = new Date(session.user.created_at).toLocaleDateString('vi-VN');
+    
+    // Fix for potentially invalid date handling
+    let joinDate = 'N/A';
+    try {
+        joinDate = new Date(session.user.created_at).toLocaleDateString('vi-VN');
+    } catch (e) {
+        console.error("Invalid join date", e);
+    }
+
     const expirationDateString = subscriptionEnd ? new Date(subscriptionEnd).toLocaleDateString('vi-VN') : 'Vĩnh viễn';
 
     return (
@@ -130,14 +138,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
                 
                 {/* Mobile: Horizontal Scroll, Desktop: Vertical Stack */}
                 <div className="w-full flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
-                    {/* Hidden Plans Button */}
-                    {/* <button 
-                        onClick={() => handleTabClick('plans')}
-                        className={`flex-shrink-0 w-auto lg:w-full text-left px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${activeTab === 'plans' ? 'bg-accent text-white' : 'text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                    >
-                        Gói cước & Thanh toán
-                    </button> */}
-
                     <button 
                         onClick={() => handleTabClick('profile')}
                         className={`flex-shrink-0 w-auto lg:w-full text-left px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${activeTab === 'profile' ? 'bg-accent text-white' : 'text-text-secondary dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
@@ -157,13 +157,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
             {/* Content Area */}
             <div className="lg:w-3/4 bg-surface dark:bg-dark-bg rounded-xl shadow-sm border border-border-color dark:border-gray-700 p-4 sm:p-6 lg:p-8 overflow-y-auto scrollbar-hide flex-grow h-full">
                 
-                {/* === TAB: PLANS (Hidden) === */}
-                {/* {activeTab === 'plans' && (
-                    <div className="animate-fade-in h-full">
-                        <Checkout />
-                    </div>
-                )} */}
-
                 {/* === TAB: PROFILE === */}
                 {activeTab === 'profile' && (
                     <div className="space-y-8 animate-fade-in">

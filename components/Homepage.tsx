@@ -93,7 +93,7 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
 
     const expirationDate = userStatus?.subscriptionEnd 
         ? new Date(userStatus.subscriptionEnd).toLocaleDateString('vi-VN') 
-        : 'Gói miễn phí';
+        : 'Vĩnh viễn';
 
     return (
         <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#302839] px-4 sm:px-10 md:px-20 lg:px-40 py-3 sticky top-0 bg-[#121212]/80 backdrop-blur-sm z-50">
@@ -142,7 +142,7 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                                     </p>
                                     <p className="text-xs text-gray-400 truncate">{session.user.email}</p>
                                     {userStatus && (
-                                        <p className="text-xs text-[#DA70D6] mt-2">Hết hạn: {expirationDate}</p>
+                                        <p className="text-xs text-gray-400 mt-2">Hết hạn: <span className="text-[#DA70D6] font-semibold">{expirationDate}</span></p>
                                     )}
                                 </div>
                                 <button onClick={() => { onOpenProfile?.(); setIsDropdownOpen(false); }} className="w-full text-left px-5 py-3 text-sm text-gray-300 hover:bg-[#302839] hover:text-white transition-colors">
@@ -197,10 +197,15 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                                         </div>
                                         <div>
                                             <p className="text-sm text-white">{session.user.email}</p>
-                                            {userStatus && <p className="text-xs text-[#DA70D6]">{userStatus.credits} Credits</p>}
+                                            {userStatus && (
+                                                <>
+                                                    <p className="text-xs text-[#DA70D6]">{userStatus.credits} Credits</p>
+                                                    <p className="text-xs text-gray-400">Hết hạn: {expirationDate}</p>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
-                                    <button onClick={handleSignOut} className="w-full py-3 text-red-400 bg-[#302839] rounded-lg">Đăng xuất</button>
+                                    <button onClick={handleSignOut} className="w-full py-3 text-red-400 bg-[#302839] rounded-lg font-semibold">Đăng xuất</button>
                                 </div>
                             </>
                         ) : (
