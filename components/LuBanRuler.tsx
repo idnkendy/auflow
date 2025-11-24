@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { LuBanRulerState } from '../state/toolState';
 import { RULER_52_2_DATA, RULER_42_9_DATA, getLuBanResult, LuBanRulerData, LuBanResult } from '../services/luBanService';
@@ -218,7 +219,7 @@ const LuBanRuler: React.FC<LuBanRulerProps> = ({ state, onStateChange }) => {
             </div>
 
              <footer className="text-center pt-4 text-text-secondary dark:text-gray-500 text-xs">
-                <p>&copy; 2025 CTAI. All rights reserved.</p>
+                <p>&copy; 2025 OPZEN AI. All rights reserved.</p>
              </footer>
         </div>
     );

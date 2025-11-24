@@ -99,7 +99,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
         <div className="w-full max-w-md">
             <div className="flex justify-center items-center mb-8">
                  <Logo className="w-20 h-20 mr-2" />
-                <span className="text-text-primary dark:text-white text-4xl font-bold">Auflow</span>
+                <span className="text-text-primary dark:text-white text-4xl font-bold">OPZEN AI</span>
             </div>
             <div className="bg-surface dark:bg-dark-bg p-8 rounded-2xl shadow-xl border border-border-color dark:border-gray-700 text-center">
                 <h2 className="text-2xl font-bold text-center text-text-primary dark:text-white mb-3">
