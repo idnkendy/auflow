@@ -139,6 +139,7 @@ async function withSmartRetry<T>(
              const isQuota = status === 429 || message.includes('quota') || message.includes('exhausted') || message.includes('429');
              const isBilling = status === 400 && (message.includes('billed users') || message.includes('billing') || message.includes('credits'));
              const isSystemBusy = message === "SYSTEM_BUSY";
+             const isOverloaded = status === 503 || message.toLowerCase().includes('overloaded');
 
              if (isSystemBusy) {
                  console.warn("[GeminiService] No keys available. Waiting 3s before retry...");
@@ -172,9 +173,12 @@ async function withSmartRetry<T>(
              
              consecutiveQuotaErrors = 0;
 
-             if (status === 503 || status === 500) {
+             // Improved logic for 503 Overloaded with exponential backoff
+             if (isOverloaded || status === 500) {
                  attempts++;
-                 await new Promise(r => setTimeout(r, 2000));
+                 const delay = Math.min(2000 * Math.pow(1.5, attempts), 15000); // Cap wait at 15s
+                 console.warn(`[GeminiService] Server Overloaded (${status}). Retrying in ${Math.round(delay)}ms...`);
+                 await new Promise(r => setTimeout(r, delay));
                  continue;
              }
 
@@ -189,7 +193,26 @@ async function withSmartRetry<T>(
         }
     }
 
-    throw lastError || new Error("Service unavailable after retries.");
+    // Final Error Formatting
+    if (lastError) {
+        const { status, message } = getErrorDetails(lastError);
+        if (status === 503 || message.toLowerCase().includes('overloaded')) {
+            throw new Error("Hệ thống AI (Google Gemini) đang quá tải. Vui lòng thử lại sau ít phút.");
+        }
+        
+        // Clean up raw JSON errors if they leak through
+        if (typeof message === 'string' && (message.startsWith('{') || message.startsWith('['))) {
+             try {
+                 const parsed = JSON.parse(message);
+                 const cleanMsg = parsed.error?.message || parsed.message || message;
+                 throw new Error(`Lỗi từ AI: ${cleanMsg}`);
+             } catch (e) {
+                 // ignore
+             }
+        }
+    }
+
+    throw lastError || new Error("Dịch vụ hiện không khả dụng. Vui lòng thử lại sau.");
 }
 
 // --- GENERATION FUNCTIONS ---
