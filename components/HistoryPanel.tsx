@@ -174,10 +174,10 @@ const HistoryPanel: React.FC = () => {
 
                     <div className="flex-1 flex flex-col max-w-md space-y-5">
                          {sourceUrl && (
-                             <div className="hidden md:block">
+                             <div>
                                 <h3 className="text-sm font-bold text-text-secondary dark:text-gray-400 mb-2 uppercase tracking-wider">Ảnh Gốc</h3>
-                                <div className="h-32 w-auto rounded-lg overflow-hidden border border-border-color dark:border-gray-700 inline-block">
-                                    <img src={sourceUrl} alt="Ảnh gốc" className="h-full object-cover" />
+                                <div className="h-32 w-auto max-w-full rounded-lg overflow-hidden border border-border-color dark:border-gray-700 inline-block bg-black/5 dark:bg-black/20">
+                                    <img src={sourceUrl} alt="Ảnh gốc" className="h-full w-full object-cover" />
                                 </div>
                             </div>
                          )}
