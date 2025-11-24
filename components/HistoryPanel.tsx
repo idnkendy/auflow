@@ -146,7 +146,7 @@ const HistoryPanel: React.FC = () => {
                 onClick={() => setSelectedItem(null)}
             >
                 <div 
-                    className="relative bg-surface dark:bg-dark-bg p-6 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto flex flex-col md:flex-row gap-8 border border-border-color dark:border-gray-700 shadow-2xl"
+                    className="relative bg-surface dark:bg-dark-bg p-6 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto flex flex-col lg:flex-row gap-8 border border-border-color dark:border-gray-700 shadow-2xl"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Close Button - Top Right */}
@@ -163,7 +163,7 @@ const HistoryPanel: React.FC = () => {
                             Kết Quả
                             {isVideo && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded border border-purple-200">Video</span>}
                         </h3>
-                        <div className="flex-grow bg-black/5 dark:bg-black/20 rounded-lg border border-border-color dark:border-gray-700 overflow-hidden flex items-center justify-center min-h-[300px]">
+                        <div className="flex-grow bg-black/5 dark:bg-black/20 rounded-lg border border-border-color dark:border-gray-700 overflow-hidden flex items-center justify-center min-h-[300px] lg:min-h-[400px]">
                             {isVideo ? (
                                 <video controls autoPlay src={displayUrl} className="w-full h-full max-h-[60vh] object-contain" />
                             ) : (
@@ -172,11 +172,11 @@ const HistoryPanel: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col max-w-md space-y-5">
+                    <div className="flex-1 flex flex-col w-full lg:max-w-md space-y-5">
                          {sourceUrl && (
                              <div>
                                 <h3 className="text-sm font-bold text-text-secondary dark:text-gray-400 mb-2 uppercase tracking-wider">Ảnh Gốc</h3>
-                                <div className="h-32 w-auto max-w-full rounded-lg overflow-hidden border border-border-color dark:border-gray-700 inline-block bg-black/5 dark:bg-black/20">
+                                <div className="h-32 w-auto max-w-full rounded-lg overflow-hidden border border-border-color dark:border-gray-700 block bg-black/5 dark:bg-black/20">
                                     <img src={sourceUrl} alt="Ảnh gốc" className="h-full w-full object-cover" />
                                 </div>
                             </div>
