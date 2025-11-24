@@ -148,6 +148,10 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                                 <button onClick={() => { onOpenProfile?.(); setIsDropdownOpen(false); }} className="w-full text-left px-5 py-3 text-sm text-gray-300 hover:bg-[#302839] hover:text-white transition-colors">
                                     Hồ sơ cá nhân
                                 </button>
+                                <button onClick={() => { onGoToGallery?.(); setIsDropdownOpen(false); }} className="w-full text-left px-5 py-3 text-sm text-gray-300 hover:bg-[#302839] hover:text-white transition-colors">
+                                    Thư viện của tôi
+                                </button>
+                                <div className="border-t border-[#302839] my-1"></div>
                                 <button onClick={handleSignOut} className="w-full text-left px-5 py-3 text-sm text-red-400 hover:bg-[#302839] transition-colors">
                                     Đăng xuất
                                 </button>
