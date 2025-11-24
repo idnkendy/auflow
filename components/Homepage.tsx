@@ -28,6 +28,20 @@ const Homepage: React.FC<HomepageProps> = (props) => {
                 .gradient-button:hover {
                     opacity: 0.9;
                 }
+                @keyframes fade-in {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .animate-fade-in {
+                    animation: fade-in 0.2s ease-out forwards;
+                }
+                @keyframes fade-in-up {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in-up {
+                    animation: fade-in-up 0.6s ease-out forwards;
+                }
             `}</style>
             
             <div className="relative flex h-auto min-h-screen w-full flex-col">
@@ -96,7 +110,7 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
         : 'Vĩnh viễn';
 
     return (
-        <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#302839] px-4 sm:px-10 md:px-20 lg:px-40 py-3 sticky top-0 bg-[#121212]/90 backdrop-blur-md z-50">
+        <header className={`flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#302839] px-4 sm:px-10 md:px-20 lg:px-40 py-3 sticky top-0 z-50 ${isMobileMenuOpen ? 'bg-[#121212]' : 'bg-[#121212]/90 backdrop-blur-md'}`}>
             <div className="flex items-center gap-2 text-white cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
                 <Logo className="w-10 h-10 sm:w-12 sm:h-12 text-[#7f13ec]" />
                 <h2 className="text-white text-xl sm:text-2xl font-bold leading-tight tracking-tight">OPZEN AI</h2>
