@@ -5,10 +5,10 @@ interface LogoProps {
     className?: string;
 }
 
-export const Logo: React.FC<LogoProps> = ({ className = "w-8 h-8" }) => {
+export const Logo: React.FC<LogoProps> = ({ className = "w-14 h-14" }) => {
     return (
         <img 
-            src="/logo.png" 
+            src="https://static.wixstatic.com/media/568992_b64a6dc3ea2440e2acae0b95a6439c0d~mv2.png/v1/fit/w_2500,h_1330,al_c/568992_b64a6dc3ea2440e2acae0b95a6439c0d~mv2.png" 
             alt="Auflow Logo" 
             className={`${className} object-contain`}
         />

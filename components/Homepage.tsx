@@ -98,7 +98,7 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
     return (
         <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#302839] px-4 sm:px-10 md:px-20 lg:px-40 py-3 sticky top-0 bg-[#121212]/80 backdrop-blur-sm z-50">
             <div className="flex items-center gap-4 text-white cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                <Logo className="size-6 text-primary" />
+                <Logo className="w-10 h-10 text-primary" />
                 <h2 className="text-white text-xl font-bold leading-tight tracking-[-0.015em]">Auflow</h2>
             </div>
             
@@ -174,7 +174,7 @@ const Header: React.FC<HomepageProps> = ({ onStart, onAuthNavigate, session, onG
                 <div className="fixed inset-0 bg-[#121212] z-50 flex flex-col p-6 animate-fade-in md:hidden">
                     <div className="flex justify-between items-center mb-8">
                         <div className="flex items-center gap-3">
-                            <Logo className="size-8 text-primary" />
+                            <Logo className="w-10 h-10 text-primary" />
                             <h2 className="text-white text-2xl font-bold">Auflow</h2>
                         </div>
                         <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white p-2">
@@ -378,7 +378,7 @@ const Footer: React.FC<{onStart: () => void, onNavigateToPricing?: () => void}> 
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
                 <div className="col-span-2 lg:col-span-2 flex flex-col gap-4">
                     <div className="flex items-center gap-3">
-                        <Logo className="size-6 text-[#7f13ec]" />
+                        <Logo className="w-8 h-8 text-[#7f13ec]" />
                         <h2 className="text-white text-xl font-bold leading-tight tracking-[-0.015em]">Auflow</h2>
                     </div>
                     <p className="text-gray-400 text-sm">Tương lai của thiết kế kiến trúc và nội thất, được hỗ trợ bởi trí tuệ nhân tạo.</p>

@@ -98,7 +98,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
         </button>
         <div className="w-full max-w-md">
             <div className="flex justify-center items-center mb-8">
-                 <Logo className="w-12 h-12 mr-3" />
+                 <Logo className="w-16 h-16 mr-3" />
                 <span className="text-text-primary dark:text-white text-3xl font-bold">Auflow</span>
             </div>
             <div className="bg-surface dark:bg-dark-bg p-8 rounded-2xl shadow-xl border border-border-color dark:border-gray-700 text-center">

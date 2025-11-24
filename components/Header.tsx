@@ -103,8 +103,8 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
                 </button>
 
                 <div className="flex items-center cursor-pointer group" onClick={onGoHome} title="Trang chủ">
-                    <Logo className="w-7 h-7 sm:w-8 sm:h-8 text-[#7f13ec]" />
-                    <span className="text-text-primary dark:text-white text-lg sm:text-xl font-bold tracking-tight ml-2 hidden xs:inline">Auflow</span>
+                    <Logo className="w-10 h-10 sm:w-12 sm:h-12 text-[#7f13ec]" />
+                    <span className="text-text-primary dark:text-white text-xl sm:text-2xl font-bold tracking-tight ml-3 hidden xs:inline">Auflow</span>
                 </div>
             </div>
             
