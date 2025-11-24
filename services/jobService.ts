@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { GenerationJob } from '../types';
 import { refundCredits } from './paymentService';
@@ -16,12 +17,13 @@ export const createJob = async (jobData: Partial<GenerationJob>): Promise<string
             .single();
 
         if (error) {
-            console.error("Error creating generation job:", error);
+            // Log chi tiết lỗi thay vì [object Object]
+            console.error("Error creating generation job:", error.message || JSON.stringify(error));
             return null;
         }
         return data.id;
-    } catch (e) {
-        console.error("Exception creating job:", e);
+    } catch (e: any) {
+        console.error("Exception creating job:", e.message || e);
         return null;
     }
 };
@@ -42,10 +44,10 @@ export const updateJobStatus = async (jobId: string, status: 'pending' | 'proces
             .eq('id', jobId);
 
         if (error) {
-            console.error(`Error updating job ${jobId}:`, error);
+            console.error(`Error updating job ${jobId}:`, error.message || JSON.stringify(error));
         }
-    } catch (e) {
-        console.error(`Exception updating job ${jobId}:`, e);
+    } catch (e: any) {
+        console.error(`Exception updating job ${jobId}:`, e.message || e);
     }
 };
 
@@ -54,10 +56,15 @@ export const updateJobApiKey = async (jobId: string, apiKey: string) => {
         // Only update if jobId is provided
         if (!jobId) return;
         
-        await supabase
+        const { error } = await supabase
             .from('generation_jobs')
             .update({ api_key_used: apiKey })
             .eq('id', jobId);
+            
+        if (error) {
+             // Sử dụng debug để tránh spam console nếu lỗi không quan trọng
+             console.debug("Error logging API key usage:", error.message);
+        }
             
     } catch (e) {
         console.error("Error logging API key usage:", e);
@@ -105,6 +112,13 @@ export const cleanupStaleJobs = async (userId: string) => {
             .lt('updated_at', cutoffTime);
 
         if (error) {
+            // Mã lỗi 42P01 là "relation does not exist" (bảng chưa tồn tại)
+            // Bỏ qua lỗi này để tránh làm phiền người dùng nếu chưa setup bảng
+            if (error.code === '42P01') {
+                console.debug("[JobService] Table 'generation_jobs' not found. Skipping stale job cleanup.");
+                return;
+            }
+            // Log rõ message lỗi
             console.error("Error fetching stale jobs:", error);
             return;
         }
@@ -123,7 +137,7 @@ export const cleanupStaleJobs = async (userId: string) => {
                 await refundCredits(job.user_id, job.cost, `Hoàn tiền: Tác vụ bị treo (Job ID: ${job.id.substring(0, 8)}...)`);
             }
         }
-    } catch (e) {
+    } catch (e: any) {
         console.error("Error cleaning up stale jobs:", e);
     }
 };

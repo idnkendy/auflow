@@ -88,9 +88,9 @@ const PublicPricing: React.FC<PublicPricingProps> = ({ onGoHome, onAuthNavigate 
 
             {/* HEADER */}
             <header className="flex items-center justify-between px-4 sm:px-10 md:px-20 py-4 sticky top-0 bg-[#121212]/80 backdrop-blur-sm z-50 border-b border-[#302839]">
-                <div className="flex items-center gap-3 cursor-pointer" onClick={onGoHome}>
-                    <Logo className="w-10 h-10 text-[#7f13ec]" />
-                    <h2 className="text-white text-xl font-bold">Auflow</h2>
+                <div className="flex items-center gap-2 cursor-pointer" onClick={onGoHome}>
+                    <Logo className="w-12 h-12 text-[#7f13ec]" />
+                    <h2 className="text-white text-2xl font-bold">Auflow</h2>
                 </div>
                 <div className="flex items-center gap-6">
                     <button onClick={() => onAuthNavigate('login')} className="text-white/80 hover:text-white text-sm font-medium">Đăng nhập</button>
@@ -196,8 +196,8 @@ const PublicPricing: React.FC<PublicPricingProps> = ({ onGoHome, onAuthNavigate 
             {/* FOOTER */}
             <footer className="mt-16 border-t border-[#302839] py-12 px-4 bg-[#121212]">
                 <div className="max-w-[1200px] mx-auto text-center">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                        <Logo className="w-8 h-8 text-[#7f13ec]" />
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                        <Logo className="w-10 h-10 text-[#7f13ec]" />
                         <h2 className="text-white text-xl font-bold">Auflow</h2>
                     </div>
                     <p className="text-gray-500 text-sm">© 2025 Auflow AI. All rights reserved.</p>
