@@ -6,7 +6,7 @@ import { Logo } from '../common/Logo';
 
 interface AuthPageProps {
   onGoHome: () => void;
-  initialMode: 'login' | 'signup';
+  initialMode?: 'login' | 'signup';
 }
 
 const GoogleIcon = () => (
@@ -18,13 +18,9 @@ const GoogleIcon = () => (
     </svg>
 );
 
-const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ onGoHome }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [mode, setMode] = useState<'login' | 'signup'>(initialMode || 'login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -32,7 +28,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://www.opzenai.com/'
+        redirectTo: window.location.origin
       }
     });
     if (error) {
@@ -40,55 +36,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
         setLoading(false);
     }
   }
-
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-        if (mode === 'signup') {
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    emailRedirectTo: window.location.origin
-                }
-            });
-            if (error) throw error;
-            
-            // If auto-confirm is enabled or successful
-            if (data.session) {
-                 setMessage("Đăng ký thành công! Đang đăng nhập...");
-                 // Force reload to ensure session sync
-                 setTimeout(() => window.location.reload(), 500);
-            } else {
-                 setMessage("Đăng ký thành công! Vui lòng kiểm tra email để xác thực.");
-                 setLoading(false);
-            }
-        } else {
-            const { error, data } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-            if (error) throw error;
-            
-            // Nếu đăng nhập thành công mà App chưa tự chuyển (do onAuthStateChange bị trễ),
-            // chúng ta sẽ đợi 1 chút rồi tải lại trang để đảm bảo session được nhận diện.
-            if (data.session) {
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-            } else {
-                setLoading(false);
-            }
-        }
-    } catch (err: any) {
-        setError(err.message || "Đã xảy ra lỗi. Vui lòng thử lại.");
-        setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-main-bg dark:bg-gray-900 flex flex-col items-center justify-center p-4 relative font-sans">
@@ -103,10 +50,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
             </div>
             <div className="bg-surface dark:bg-dark-bg p-8 rounded-2xl shadow-xl border border-border-color dark:border-gray-700 text-center">
                 <h2 className="text-2xl font-bold text-center text-text-primary dark:text-white mb-3">
-                    {mode === 'login' ? 'Chào mừng trở lại!' : 'Tạo tài khoản mới'}
+                    Chào mừng bạn!
                 </h2>
                 <p className="text-center text-text-secondary dark:text-gray-400 mb-8">
-                    {mode === 'login' ? 'Đăng nhập để tiếp tục sáng tạo.' : 'Bắt đầu hành trình sáng tạo của bạn.'}
+                    Đăng nhập để tiếp tục sáng tạo cùng OPZEN AI.
                 </p>
                 
                 {!isSupabaseConfigured && (
@@ -117,7 +64,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
                 )}
                 
                 {error && <div className="mb-6 p-3 bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300 rounded-lg text-sm text-left">{error}</div>}
-                {message && <div className="mb-6 p-3 bg-green-100 border-green-400 text-green-700 dark:bg-green-900/50 dark:border-green-500 dark:text-green-300 rounded-lg text-sm text-left">{message}</div>}
 
                 <button
                   onClick={handleGoogleSignIn}
@@ -131,67 +77,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGoHome, initialMode }) => {
                       </>
                   )}
                 </button>
-
-                <div className="relative mb-6">
-                    <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-surface dark:bg-dark-bg text-text-secondary dark:text-gray-500">Hoặc bằng email</span>
-                    </div>
-                </div>
-
-                <form onSubmit={handleEmailAuth} className="space-y-4 text-left">
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Email</label>
-                        <input
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white focus:ring-2 focus:ring-accent focus:outline-none transition-all"
-                            placeholder="name@example.com"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary dark:text-gray-400 mb-1">Mật khẩu</label>
-                        <input
-                            type="password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-main-bg dark:bg-gray-800 border border-border-color dark:border-gray-600 rounded-lg p-3 text-text-primary dark:text-white focus:ring-2 focus:ring-accent focus:outline-none transition-all"
-                            placeholder="••••••••"
-                            minLength={6}
-                        />
-                    </div>
-                    
-                    <button
-                        type="submit"
-                        disabled={loading || !isSupabaseConfigured}
-                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-xl transition-colors flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/30"
-                    >
-                        {loading ? <Spinner /> : (mode === 'login' ? 'Đăng nhập' : 'Đăng ký')}
-                    </button>
-                </form>
-
-                <div className="mt-6 text-sm text-center">
-                    <span className="text-text-secondary dark:text-gray-400">
-                        {mode === 'login' ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
-                    </span>
-                    <button
-                        onClick={() => {
-                            setMode(mode === 'login' ? 'signup' : 'login');
-                            setError(null);
-                            setMessage(null);
-                        }}
-                        className="text-accent font-bold hover:underline ml-1"
-                    >
-                        {mode === 'login' ? "Đăng ký ngay" : "Đăng nhập"}
-                    </button>
-                </div>
                 
-                <p className="mt-8 text-xs text-text-secondary dark:text-gray-600">
+                <p className="mt-4 text-xs text-text-secondary dark:text-gray-600">
                     Bằng việc tiếp tục, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi.
                 </p>
             </div>
