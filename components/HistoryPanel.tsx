@@ -176,8 +176,8 @@ const HistoryPanel: React.FC = () => {
                          {sourceUrl && (
                              <div>
                                 <h3 className="text-sm font-bold text-text-secondary dark:text-gray-400 mb-2 uppercase tracking-wider">Ảnh Gốc</h3>
-                                <div className="h-32 w-auto max-w-full rounded-lg overflow-hidden border border-border-color dark:border-gray-700 block bg-black/5 dark:bg-black/20">
-                                    <img src={sourceUrl} alt="Ảnh gốc" className="h-full w-full object-cover" />
+                                <div className="w-full rounded-lg overflow-hidden border border-border-color dark:border-gray-700 bg-black/5 dark:bg-black/20 flex justify-center items-center">
+                                    <img src={sourceUrl} alt="Ảnh gốc" className="max-h-60 w-auto max-w-full object-contain" />
                                 </div>
                             </div>
                          )}
