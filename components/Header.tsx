@@ -104,7 +104,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onThemeToggle, theme, onSignO
 
                 <div className="flex items-center cursor-pointer group" onClick={onGoHome} title="Trang chủ">
                     <Logo className="w-12 h-12 sm:w-14 sm:h-14 text-[#7f13ec]" />
-                    <span className="text-text-primary dark:text-white text-xl sm:text-2xl font-bold tracking-tight ml-2 hidden xs:inline">OPZEN AI</span>
+                    <span className="text-text-primary dark:text-white text-xl sm:text-2xl font-bold tracking-tight ml-2">OPZEN AI</span>
                 </div>
             </div>
             

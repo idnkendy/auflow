@@ -114,7 +114,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ session, initialTab = 'profil
 
     // Mock Profile Data
     const userEmail = session.user.email;
-    const userName = session.user.user_metadata?.full_name || "Người dùng Auflow";
+    const userName = session.user.user_metadata?.full_name || "Người dùng OPZEN AI";
     
     // Fix for potentially invalid date handling
     let joinDate = 'N/A';

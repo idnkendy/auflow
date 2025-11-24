@@ -79,7 +79,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ state, onStateChange, u
                 <p className="text-text-secondary dark:text-gray-400 max-w-md text-lg">
                     Hệ thống tạo video đang được nâng cấp để cải thiện chất lượng và tốc độ. 
                     <br />
-                    Vui lòng quay lại sau hoặc trải nghiệm các tính năng khác của Auflow.
+                    Vui lòng quay lại sau hoặc trải nghiệm các tính năng khác của OPZEN AI.
                 </p>
             </div>
         );
