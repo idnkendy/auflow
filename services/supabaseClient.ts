@@ -58,5 +58,5 @@ export const checkSupabaseConnection = async () => {
     }
 };
 
-// Run check on init - REMOVED TO OPTIMIZE LOAD SPEED
-// checkSupabaseConnection();
+// Run check on init
+checkSupabaseConnection();
