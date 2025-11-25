@@ -278,6 +278,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
 
         try {
             // 1. Deduct credits
+            // We get logId if successful. If this throws, we enter catch block (no refund needed as nothing was deducted)
             if (onDeductCredits) {
                 logId = await onDeductCredits(cost, `Render kiến trúc (${numberOfImages} ảnh) - ${resolution}`);
             }
@@ -293,6 +294,14 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                     usage_log_id: logId
                 });
                 setActiveJobId(jobId); // Set for queue polling
+            }
+
+            // --- CRITICAL CHECK ---
+            // If we deducted credits (logId exists) but failed to create a job (jobId is null),
+            // we must throw an error immediately to trigger the refund logic in the catch block.
+            // This prevents "zombie" runs where money is taken but no record/delivery exists.
+            if (logId && !jobId) {
+                throw new Error("Lỗi khởi tạo tác vụ (Job Creation Failed). Hệ thống sẽ hoàn tiền tự động.");
             }
 
             // 3. Smart Retry Logic
@@ -363,6 +372,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
                 userErrorMessage = err.message;
             } else if (err.message.includes('Lỗi kết nối')) {
                 userErrorMessage = err.message;
+            } else if (err.message.includes('Lỗi khởi tạo tác vụ')) {
+                userErrorMessage = err.message;
             }
 
             onStateChange({ error: userErrorMessage });
@@ -370,9 +381,14 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ state, onStateChange, o
             if (jobId) {
                 await jobService.updateJobStatus(jobId, 'failed', undefined, err.message);
             }
-             const { data: { user } } = await supabase.auth.getUser();
-             if (user) {
-                await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi render kiến trúc (${err.message})`);
+            
+            // --- REFUND LOGIC ---
+            // Only refund if logId exists (meaning money was actually deducted)
+             if (logId) {
+                 const { data: { user } } = await supabase.auth.getUser();
+                 if (user) {
+                    await refundCredits(user.id, cost, `Hoàn tiền: Lỗi khi render kiến trúc (${err.message})`);
+                 }
              }
 
         } finally {
