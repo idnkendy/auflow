@@ -1,30 +1,11 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './services/supabaseClient';
 import { Tool, FileData, UserStatus } from './types';
 import Header from './components/Header';
 import Navigation from './components/Navigation';
-import ImageGenerator from './components/ImageGenerator';
-import VideoGenerator from './components/VideoGenerator';
-import ImageEditor from './components/ImageEditor';
-import ViewSync from './components/ViewSync';
-import VirtualTour from './components/VirtualTour';
-import Renovation from './components/Renovation';
-import FloorPlan from './components/FloorPlan';
-import UrbanPlanning from './components/UrbanPlanning';
-import LandscapeRendering from './components/LandscapeRendering';
-import MaterialSwapper from './components/MaterialSwapper';
-import Staging from './components/Staging';
-import Upscale from './components/Upscale';
 import HistoryPanel from './components/HistoryPanel';
-import InteriorGenerator from './components/InteriorGenerator';
-import MoodboardGenerator from './components/MoodboardGenerator';
-import PromptSuggester from './components/PromptSuggester';
-import PromptEnhancer from './components/PromptEnhancer';
-import AITechnicalDrawings from './components/AITechnicalDrawings';
-import SketchConverter from './components/SketchConverter';
-import FengShui from './components/FengShui';
 import UserProfile from './components/UserProfile';
 import { initialToolStates, ToolStates } from './state/toolState';
 import Homepage from './components/Homepage';
@@ -33,6 +14,29 @@ import Spinner from './components/Spinner';
 import PublicPricing from './components/PublicPricing';
 import { getUserStatus, deductCredits } from './services/paymentService';
 import * as jobService from './services/jobService';
+
+// --- LAZY LOAD HEAVY COMPONENTS ---
+// This splits the code into smaller chunks, so the user doesn't download everything at start.
+const ImageGenerator = React.lazy(() => import('./components/ImageGenerator'));
+const VideoGenerator = React.lazy(() => import('./components/VideoGenerator'));
+const ImageEditor = React.lazy(() => import('./components/ImageEditor'));
+const ViewSync = React.lazy(() => import('./components/ViewSync'));
+const VirtualTour = React.lazy(() => import('./components/VirtualTour'));
+const Renovation = React.lazy(() => import('./components/Renovation'));
+const FloorPlan = React.lazy(() => import('./components/FloorPlan'));
+const UrbanPlanning = React.lazy(() => import('./components/UrbanPlanning'));
+const LandscapeRendering = React.lazy(() => import('./components/LandscapeRendering'));
+const MaterialSwapper = React.lazy(() => import('./components/MaterialSwapper'));
+const Staging = React.lazy(() => import('./components/Staging'));
+const Upscale = React.lazy(() => import('./components/Upscale'));
+const InteriorGenerator = React.lazy(() => import('./components/InteriorGenerator'));
+const MoodboardGenerator = React.lazy(() => import('./components/MoodboardGenerator'));
+const PromptSuggester = React.lazy(() => import('./components/PromptSuggester'));
+const PromptEnhancer = React.lazy(() => import('./components/PromptEnhancer'));
+const AITechnicalDrawings = React.lazy(() => import('./components/AITechnicalDrawings'));
+const SketchConverter = React.lazy(() => import('./components/SketchConverter'));
+const FengShui = React.lazy(() => import('./components/FengShui'));
+const LuBanRuler = React.lazy(() => import('./components/LuBanRuler'));
 
 const App: React.FC = () => {
   const [view, setView] = useState<'homepage' | 'auth' | 'app' | 'pricing'>('homepage');
@@ -102,8 +106,9 @@ const App: React.FC = () => {
   // Define fetchUserStatus using useCallback to be stable
   const fetchUserStatus = useCallback(async () => {
     if (session?.user) {
-      // Check for stale jobs and refund if necessary before getting status
-      await jobService.cleanupStaleJobs(session.user.id);
+      // OPTIMIZATION: Run cleanup in background (fire and forget). 
+      // Do NOT await this, so the UI loads faster.
+      jobService.cleanupStaleJobs(session.user.id).catch(err => console.warn("Background cleanup warning:", err));
       
       // Pass email to ensure it's saved in DB
       const status = await getUserStatus(session.user.id, session.user.email);
@@ -229,87 +234,86 @@ const App: React.FC = () => {
   const userCredits = userStatus?.credits || 0;
 
   const renderTool = () => {
+    const commonProps = {
+        userCredits,
+        onDeductCredits: handleDeductCredits
+    };
+
     switch (activeTool) {
       case Tool.FloorPlan:
         return <FloorPlan 
             state={toolStates.FloorPlan}
             onStateChange={(newState) => handleToolStateChange(Tool.FloorPlan, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.Renovation:
         return <Renovation 
             state={toolStates.Renovation}
             onStateChange={(newState) => handleToolStateChange(Tool.Renovation, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.ArchitecturalRendering:
         return <ImageGenerator 
             state={toolStates.ArchitecturalRendering}
             onStateChange={(newState) => handleToolStateChange(Tool.ArchitecturalRendering, newState)}
             onSendToViewSync={handleSendToViewSync} 
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.InteriorRendering:
         return <InteriorGenerator
             state={toolStates.InteriorRendering}
             onStateChange={(newState) => handleToolStateChange(Tool.InteriorRendering, newState)}
             onSendToViewSync={handleSendToViewSync} 
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.UrbanPlanning:
         return <UrbanPlanning
             state={toolStates.UrbanPlanning}
             onStateChange={(newState) => handleToolStateChange(Tool.UrbanPlanning, newState)}
             onSendToViewSync={handleSendToViewSync}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.LandscapeRendering:
         return <LandscapeRendering
             state={toolStates.LandscapeRendering}
             onStateChange={(newState) => handleToolStateChange(Tool.LandscapeRendering, newState)}
             onSendToViewSync={handleSendToViewSync}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.AITechnicalDrawings:
         return <AITechnicalDrawings
             state={toolStates.AITechnicalDrawings}
             onStateChange={(newState) => handleToolStateChange(Tool.AITechnicalDrawings, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.SketchConverter:
         return <SketchConverter
             state={toolStates.SketchConverter}
             onStateChange={(newState) => handleToolStateChange(Tool.SketchConverter, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.FengShui:
         return <FengShui
             state={toolStates.FengShui}
             onStateChange={(newState) => handleToolStateChange(Tool.FengShui, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
+        />;
+      case Tool.LuBanRuler:
+        return <LuBanRuler 
+            state={toolStates.LuBanRuler}
+            onStateChange={(newState) => handleToolStateChange(Tool.LuBanRuler, newState)}
         />;
       case Tool.ViewSync:
         return <ViewSync 
             state={toolStates.ViewSync}
             onStateChange={(newState) => handleToolStateChange(Tool.ViewSync, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.VirtualTour:
         return <VirtualTour
             state={toolStates.VirtualTour}
             onStateChange={(newState) => handleToolStateChange(Tool.VirtualTour, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.PromptSuggester:
         return <PromptSuggester
@@ -326,43 +330,37 @@ const App: React.FC = () => {
         return <MaterialSwapper 
             state={toolStates.MaterialSwap}
             onStateChange={(newState) => handleToolStateChange(Tool.MaterialSwap, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.Staging:
         return <Staging 
             state={toolStates.Staging}
             onStateChange={(newState) => handleToolStateChange(Tool.Staging, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.Upscale:
         return <Upscale 
             state={toolStates.Upscale}
             onStateChange={(newState) => handleToolStateChange(Tool.Upscale, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.Moodboard:
         return <MoodboardGenerator 
             state={toolStates.Moodboard}
             onStateChange={(newState) => handleToolStateChange(Tool.Moodboard, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.VideoGeneration:
         return <VideoGenerator 
             state={toolStates.VideoGeneration}
             onStateChange={(newState) => handleToolStateChange(Tool.VideoGeneration, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.ImageEditing:
         return <ImageEditor 
             state={toolStates.ImageEditing}
             onStateChange={(newState) => handleToolStateChange(Tool.ImageEditing, newState)}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
       case Tool.History:
         return <HistoryPanel />;
@@ -380,16 +378,27 @@ const App: React.FC = () => {
             state={toolStates.ArchitecturalRendering}
             onStateChange={(newState) => handleToolStateChange(Tool.ArchitecturalRendering, newState)}
             onSendToViewSync={handleSendToViewSync}
-            userCredits={userCredits}
-            onDeductCredits={handleDeductCredits}
+            {...commonProps}
         />;
     }
   };
 
+  const renderLoadingState = () => (
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+          <div className="flex flex-col items-center gap-4">
+              <Spinner />
+              <p className="text-text-secondary dark:text-gray-400 animate-pulse text-sm">Đang tải công cụ...</p>
+          </div>
+      </div>
+  );
+
   if (loadingSession) {
     return (
       <div className="min-h-[100dvh] bg-main-bg dark:bg-[#121212] flex items-center justify-center">
-        <Spinner />
+        <div className="flex flex-col items-center gap-4">
+            <Spinner />
+            <p className="text-text-secondary dark:text-gray-400 text-sm">Đang kết nối...</p>
+        </div>
       </div>
     );
   }
@@ -441,7 +450,9 @@ const App: React.FC = () => {
                     className="flex-1 bg-surface/90 dark:bg-[#191919]/90 backdrop-blur-md md:m-6 md:ml-0 md:rounded-2xl shadow-lg border-t md:border border-border-color dark:border-[#302839] overflow-y-auto scrollbar-hide p-3 sm:p-6 lg:p-8 relative z-0 transition-colors duration-300"
                     style={{ WebkitOverflowScrolling: 'touch' }}
                 >
-                    {renderTool()}
+                    <Suspense fallback={renderLoadingState()}>
+                        {renderTool()}
+                    </Suspense>
                 </main>
             </div>
         </div>
