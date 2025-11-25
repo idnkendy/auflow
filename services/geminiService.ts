@@ -86,12 +86,6 @@ const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: stri
             throw new Error("SYSTEM_BUSY"); 
         }
 
-        // --- ANTI-RACE CONDITION JITTER ---
-        // Thêm độ trễ ngẫu nhiên (0-300ms) để tránh việc 200 user cùng gọi RPC tại 1 thời điểm
-        // khiến DB trả về cùng 1 key (Race Condition).
-        const jitter = Math.floor(Math.random() * 300);
-        await new Promise(r => setTimeout(r, jitter));
-
         const { data: apiKey, error } = await supabase.rpc('get_worker_key');
 
         if (error || !apiKey) {
@@ -99,9 +93,7 @@ const getAIClient = async (jobId?: string): Promise<{ ai: GoogleGenAI, key: stri
             throw new Error("SYSTEM_BUSY");
         }
 
-        // Nếu đang trong quy trình retry (có jobId), cập nhật lại DB để biết job này cuối cùng dùng key nào
         if (jobId) {
-            console.log(`[GeminiService] Switched to Key ...${apiKey.slice(-4)} for Job ${jobId}`);
             await updateJobApiKey(jobId, apiKey);
         }
 
@@ -132,7 +124,6 @@ async function withSmartRetry<T>(
             currentKey = client.key;
 
             if (failedKeys.has(currentKey)) {
-                 // Nếu DB trả lại key vừa fail (do chưa kịp update), ta force mark lại và skip
                  await markKeyAsExhausted(currentKey); 
                  attempts++;
                  continue; 

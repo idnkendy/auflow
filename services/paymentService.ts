@@ -194,95 +194,117 @@ export const getUserStatus = async (userId: string, email?: string): Promise<Use
     return { credits: 0, subscriptionEnd: null, isExpired: true };
 };
 
-/**
- * DEDUCT CREDITS (ATOMIC VERSION)
- * Sử dụng RPC (Remote Procedure Call) để gọi hàm SQL trên server.
- * Điều này đảm bảo trừ tiền và ghi log xảy ra cùng lúc, tránh xung đột (race condition)
- * và ngăn chặn việc sửa đổi logic ở phía client.
- */
 export const deductCredits = async (userId: string, amount: number, description: string = 'Sử dụng tính năng AI'): Promise<string> => {
     try {
-        // Gọi hàm RPC 'deduct_user_credits' đã định nghĩa trong Supabase
-        // YÊU CẦU: Bạn cần chạy câu lệnh SQL tạo hàm này trong Supabase Editor trước
-        const { data: logId, error } = await withRetry(async () => {
-            return await supabase.rpc('deduct_user_credits', {
-                p_user_id: userId,
-                p_amount: amount,
-                p_description: description
-            });
-        });
-
-        if (error) {
-            // Xử lý lỗi trả về từ Database
-            const msg = error.message || '';
-            if (msg.includes('Không đủ credits')) {
-                throw new Error("Không đủ Credits để thực hiện hành động này.");
+        console.group('[PaymentService] Bắt đầu trừ Credits');
+        return await withRetry(async () => {
+            // 1. Check Balance
+            console.log("Bước 1: Kiểm tra số dư...");
+            const { data: profile, error: fetchError } = await supabase
+                .from('profiles')
+                .select('credits, subscription_end')
+                .eq('id', userId)
+                .single();
+                
+            if (fetchError) {
+                 const msg = fetchError.message || '';
+                 if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) throw new Error('TypeError: Failed to fetch (Check Balance)');
+                 if (fetchError.code === 'PGRST116') throw new Error("Không tìm thấy thông tin tài khoản.");
+                 throw new Error(`Lỗi kiểm tra số dư: ${msg}`);
             }
-            // Fallback nếu RPC chưa được tạo (dành cho quá trình dev)
-            if (msg.includes('function') && msg.includes('does not exist')) {
-                console.warn("RPC 'deduct_user_credits' chưa tồn tại. Chuyển về chế độ trừ tiền Client-side (Không khuyến khích).");
-                return await deductCreditsLegacy(userId, amount, description);
-            }
-            throw new Error(`Lỗi trừ tiền: ${msg}`);
-        }
 
-        return logId as string;
+            // Validate Expiration
+            const now = new Date();
+            const subEnd = profile.subscription_end ? new Date(profile.subscription_end) : null;
+            if (!subEnd || subEnd < now) {
+                 throw new Error("Gói cước của bạn đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng số dư.");
+            }
+
+            const currentCredits = profile?.credits ?? 0;
+            if (currentCredits < amount) {
+                throw new Error(`Không đủ Credits. Cần ${amount}, hiện có ${currentCredits}.`);
+            }
+
+            // 2. Record Usage Log
+            console.log("Bước 2: Ghi nhật ký giao dịch...");
+            const { data: logData, error: logError } = await supabase
+                .from('usage_logs')
+                .insert({
+                    user_id: userId,
+                    credits_used: amount,
+                    description: description,
+                })
+                .select('id')
+                .single();
+
+            if (logError) {
+                const msg = logError.message || '';
+                if (msg.includes('Failed to fetch')) throw new Error('TypeError: Failed to fetch (Insert Log)');
+                throw new Error(`Lỗi ghi nhật ký: ${msg}`);
+            }
+
+            // 3. Update Balance
+            console.log("Bước 3: Cập nhật số dư mới...");
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ 
+                    credits: currentCredits - amount,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', userId);
+
+            if (updateError) {
+                const msg = updateError.message || '';
+                if (msg.includes('Failed to fetch')) throw new Error('TypeError: Failed to fetch (Update Balance)');
+                throw new Error(`Lỗi trừ tiền: ${msg}`);
+            }
+
+            console.log("-> Hoàn tất trừ tiền.");
+            return logData.id;
+        }, 5, 2000);
 
     } catch (error: any) {
-        console.error("Deduct credits failed:", error);
-        let uiMessage = error.message || "Lỗi không xác định.";
-        if (uiMessage.includes('Failed to fetch')) {
-            uiMessage = "Lỗi kết nối mạng. Vui lòng thử lại.";
+        console.error("Deduct credits failed (Final):", error);
+        let uiMessage = "Lỗi không xác định.";
+        let errorObj = error;
+        if (typeof error === 'string') {
+            try {
+                if (error.trim().startsWith('{')) {
+                    errorObj = JSON.parse(error);
+                } else {
+                    uiMessage = error;
+                }
+            } catch (e) {
+                uiMessage = error;
+            }
         }
-        throw new Error(uiMessage);
+
+        if (typeof errorObj === 'object' && errorObj !== null) {
+            if (errorObj.details && typeof errorObj.details === 'string') {
+                 uiMessage = errorObj.details;
+            } else if (errorObj.message) {
+                 uiMessage = errorObj.message;
+            } else {
+                 uiMessage = JSON.stringify(errorObj);
+            }
+        }
+
+        if (uiMessage.includes('Failed to fetch') || uiMessage.includes('NetworkError') || uiMessage.includes('fetch')) {
+            throw new Error("Lỗi kết nối (Failed to fetch). Có thể Database đang khởi động lại, vui lòng thử lại sau 10-20 giây.");
+        } else if (uiMessage.includes('Không đủ Credits') || uiMessage.includes('hết hạn')) {
+            throw error;
+        } else {
+            console.error("Original Error:", uiMessage);
+            throw new Error("Hệ thống đang bận hoặc gặp sự cố tạm thời. Vui lòng thử lại sau."); 
+        }
+    } finally {
+        console.groupEnd();
     }
-};
-
-// Fallback function (Logic cũ) - Chỉ dùng khi chưa setup RPC
-const deductCreditsLegacy = async (userId: string, amount: number, description: string): Promise<string> => {
-    // 1. Check Balance
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('credits')
-        .eq('id', userId)
-        .single();
-
-    const currentCredits = profile?.credits ?? 0;
-    if (currentCredits < amount) {
-        throw new Error(`Không đủ Credits. Cần ${amount}, hiện có ${currentCredits}.`);
-    }
-
-    // 2. Record Usage Log
-    const { data: logData, error: logError } = await supabase
-        .from('usage_logs')
-        .insert({
-            user_id: userId,
-            credits_used: amount,
-            description: description,
-        })
-        .select('id')
-        .single();
-
-    if (logError) throw new Error(`Lỗi ghi nhật ký: ${logError.message}`);
-
-    // 3. Update Balance
-    const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-            credits: currentCredits - amount,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-
-    if (updateError) throw new Error(`Lỗi trừ tiền: ${updateError.message}`);
-
-    return logData.id;
 };
 
 export const refundCredits = async (userId: string, amount: number, description: string = 'Hoàn tiền'): Promise<void> => {
     try {
         await withRetry(async () => {
-            // Có thể nâng cấp thành RPC 'refund_user_credits' sau này để an toàn hơn
             const { data: profile } = await supabase.from('profiles').select('credits').eq('id', userId).single();
             if (!profile) return;
 
@@ -293,7 +315,7 @@ export const refundCredits = async (userId: string, amount: number, description:
 
             await supabase.from('usage_logs').insert({
                 user_id: userId,
-                credits_used: -amount, // Số âm để biểu thị hoàn tiền
+                credits_used: -amount,
                 description: description,
             });
         });
